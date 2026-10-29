@@ -1,0 +1,478 @@
+import React, { useState, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import confetti from "canvas-confetti";
+import { Users, Play, Trophy, ArrowRight, Download, Check, X } from "lucide-react";
+
+export default function HostScreen({ roomData, socket, onLeave }) {
+  const [roomState, setRoomState] = useState("LOBBY");
+  const [players, setPlayers] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [questionNumber, setQuestionNumber] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(1);
+  const [remainingTime, setRemainingTime] = useState(15);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [questionStats, setQuestionStats] = useState([0, 0, 0, 0]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [isLastQuestion, setIsLastQuestion] = useState(false);
+  const [podium, setPodium] = useState({ first: null, second: null, third: null });
+  const [floatingReactions, setFloatingReactions] = useState([]);
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+  const joinUrl = `${window.location.origin}/?pin=${roomData?.pin}`;
+
+  useEffect(() => {
+    socket.on("player_joined", ({ players }) => setPlayers(players));
+    socket.on("player_left", ({ players }) => setPlayers(players));
+
+    socket.on("question_intro", ({ questionNumber, totalQuestions, questionTitle }) => {
+      setRoomState("QUESTION_INTRO");
+      setQuestionNumber(questionNumber);
+      setTotalQuestions(totalQuestions);
+      setCurrentQuestion({ question: questionTitle });
+      setAnsweredCount(0);
+    });
+
+    socket.on("question_start_host", ({ question, questionNumber, totalQuestions, timeLimit }) => {
+      setRoomState("QUESTION_ACTIVE");
+      setCurrentQuestion(question);
+      setQuestionNumber(questionNumber);
+      setTotalQuestions(totalQuestions);
+      setRemainingTime(timeLimit);
+      setAnsweredCount(0);
+    });
+
+    socket.on("timer_tick", ({ remaining }) => setRemainingTime(remaining));
+    socket.on("answer_submitted_update", ({ answeredCount }) => setAnsweredCount(answeredCount));
+
+    socket.on("question_result_host", ({ question, stats }) => {
+      setRoomState("QUESTION_RESULT");
+      setCurrentQuestion(question);
+      setQuestionStats(stats);
+    });
+
+    socket.on("leaderboard_update", ({ topPlayers, isLastQuestion }) => {
+      setRoomState("LEADERBOARD");
+      setLeaderboard(topPlayers);
+      setIsLastQuestion(isLastQuestion);
+    });
+
+    socket.on("game_over", ({ podium }) => {
+      setRoomState("GAME_OVER");
+      setPodium(podium);
+      triggerConfetti();
+    });
+
+    socket.on("floating_reaction", (reaction) => {
+      setFloatingReactions((prev) => [...prev, reaction]);
+      setTimeout(() => {
+        setFloatingReactions((prev) => prev.filter((r) => r.id !== reaction.id));
+      }, 2500);
+    });
+
+    return () => {
+      socket.off("player_joined");
+      socket.off("player_left");
+      socket.off("question_intro");
+      socket.off("question_start_host");
+      socket.off("timer_tick");
+      socket.off("answer_submitted_update");
+      socket.off("question_result_host");
+      socket.off("leaderboard_update");
+      socket.off("game_over");
+      socket.off("floating_reaction");
+    };
+  }, [socket, roomData?.pin]);
+
+  const triggerConfetti = () => {
+    confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+    setTimeout(() => {
+      confetti({ particleCount: 100, angle: 60, spread: 55, origin: { x: 0 } });
+      confetti({ particleCount: 100, angle: 120, spread: 55, origin: { x: 1 } });
+    }, 600);
+  };
+
+  const handleStartGame = () => socket.emit("start_quiz", { pin: roomData?.pin });
+  const handleShowLeaderboard = () => socket.emit("show_leaderboard", { pin: roomData?.pin });
+  const handleNextQuestion = () => socket.emit("next_question", { pin: roomData?.pin });
+  const handleExportExcel = () => window.open(`${backendUrl}/api/reports/${roomData?.pin}/export`, "_blank");
+
+  // 4 khối màu Kahoot chuẩn xác
+  const kahootBlocks = [
+    { bg: "kahoot-card-red", icon: "▲", name: "Đỏ" },
+    { bg: "kahoot-card-blue", icon: "◆", name: "Lam" },
+    { bg: "kahoot-card-yellow", icon: "●", name: "Vàng" },
+    { bg: "kahoot-card-green", icon: "■", name: "Lục" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#46178f] flex flex-col justify-between select-none relative overflow-hidden">
+      {/* Floating Reactions Overlay */}
+      <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+        {floatingReactions.map((r) => (
+          <div
+            key={r.id}
+            className="absolute bottom-16 animate-float-up flex items-center gap-1.5 px-3 py-1 bg-white text-gray-900 rounded-full shadow-lg border border-gray-200"
+            style={{ left: `${Math.random() * 70 + 15}%` }}
+          >
+            <span className="text-2xl">{r.emoji}</span>
+            <span className="text-xs font-black">{r.nickname}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 1. MÀN HÌNH LOBBY PHÒNG CHỜ CHUẨN KAHOOT */}
+      {roomState === "LOBBY" && (
+        <div className="flex-1 flex flex-col justify-between">
+          {/* Top Bar màu trắng khổng lồ hiển thị PIN */}
+          <div className="bg-white border-b-4 border-gray-300 py-4 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
+            <div className="flex items-center gap-4">
+              <div className="bg-gray-100 p-1.5 rounded border border-gray-300">
+                <QRCodeSVG value={joinUrl} size={70} />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-black uppercase tracking-wider text-gray-600">
+                  Tham gia tại trình duyệt hoặc quét mã QR
+                </div>
+                <div className="text-sm font-extrabold text-gray-900">
+                  {window.location.host}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center sm:text-right">
+              <div className="text-xs font-black uppercase tracking-widest text-gray-500">
+                MÃ PIN TRÒ CHƠI:
+              </div>
+              <div className="text-4xl sm:text-5xl font-black text-gray-900 tracking-wider">
+                {roomData?.pin}
+              </div>
+            </div>
+
+            <button
+              onClick={handleStartGame}
+              disabled={players.length === 0}
+              className="px-8 py-3 rounded-md font-black text-lg uppercase tracking-wider btn-kahoot-black disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Bắt đầu
+            </button>
+          </div>
+
+          {/* Vùng giữa: Danh sách người chơi hiển thị dạng thẻ Kahoot */}
+          <div className="flex-1 max-w-6xl mx-auto w-full p-6 sm:p-10 flex flex-col justify-between">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2 text-white font-black text-xl">
+                <Users className="w-6 h-6" />
+                <span>{players.length} Người chơi đã vào</span>
+              </div>
+
+              <div className="text-white/80 font-bold text-sm">
+                Đang chơi bộ đề: <span className="text-white font-black">{roomData?.quizTitle}</span>
+              </div>
+            </div>
+
+            {players.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-white animate-spin mb-4" />
+                <h3 className="text-2xl font-black text-white">Đang đợi người chơi tham gia...</h3>
+                <p className="text-purple-200 text-sm mt-1">
+                  Nhập mã PIN <span className="font-black text-white">{roomData?.pin}</span> trên thiết bị của bạn
+                </p>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-wrap gap-3 items-start content-start">
+                {players.map((p) => (
+                  <div
+                    key={p.id}
+                    className="bg-white text-gray-900 px-5 py-2.5 rounded-lg font-black text-lg shadow-md border-b-4 border-gray-300 flex items-center gap-2 animate-in zoom-in-95 duration-200"
+                  >
+                    <span className="text-2xl">{p.avatar}</span>
+                    <span>{p.nickname}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="pt-4 flex justify-start">
+              <button
+                onClick={onLeave}
+                className="px-5 py-2 rounded font-bold text-sm text-purple-200 hover:text-white bg-black/20 hover:bg-black/30"
+              >
+                Hủy phòng & Quay lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. MÀN HÌNH ĐẾM NGƯỢC GIỚI THIỆU CÂU HỎI */}
+      {roomState === "QUESTION_INTRO" && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6">
+          <div className="bg-black/30 px-6 py-2 rounded-full text-white font-black text-sm uppercase tracking-wider">
+            Câu hỏi {questionNumber} / {totalQuestions}
+          </div>
+          <div className="w-full max-w-4xl bg-white rounded-lg p-8 sm:p-12 shadow-2xl border-b-8 border-gray-300">
+            <h1 className="text-3xl sm:text-5xl font-black text-gray-900 leading-tight">
+              {currentQuestion?.question}
+            </h1>
+          </div>
+          <div className="text-6xl font-black text-white animate-pulse">
+            Sẵn sàng...
+          </div>
+        </div>
+      )}
+
+      {/* 3. MÀN HÌNH CÂU HỎI ĐANG DIỄN RA (QUESTION_ACTIVE) */}
+      {roomState === "QUESTION_ACTIVE" && (
+        <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto w-full">
+          {/* Thanh trên: Câu hỏi màu trắng to đùng ở giữa, đồng hồ tròn bên trái, số câu trả lời bên phải */}
+          <div className="flex items-center justify-between gap-4 mb-4">
+            {/* Đồng hồ đếm ngược tròn Kahoot */}
+            <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg shrink-0">
+              {remainingTime}
+            </div>
+
+            {/* Khung câu hỏi chữ nhật màu trắng */}
+            <div className="flex-1 bg-white rounded-lg p-5 sm:p-7 shadow-xl border-b-4 border-gray-300 text-center">
+              <span className="text-xs font-black uppercase tracking-wider text-gray-400 block mb-1">
+                Câu {questionNumber} / {totalQuestions}
+              </span>
+              <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-snug">
+                {currentQuestion?.question}
+              </h2>
+            </div>
+
+            {/* Số người đã trả lời */}
+            <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex flex-col items-center justify-center text-white shadow-lg shrink-0">
+              <span className="text-2xl font-black">{answeredCount}</span>
+              <span className="text-[10px] font-black uppercase text-purple-200">Đã trả lời</span>
+            </div>
+          </div>
+
+          {/* 4 Khối màu Kahoot huyền thoại chiếm toàn bộ nửa dưới */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 items-stretch mt-4">
+            {currentQuestion?.options?.map((opt, index) => (
+              <div
+                key={opt.id}
+                className={`rounded-lg p-6 sm:p-8 flex items-center gap-5 text-white font-black text-xl sm:text-2xl transition-all ${
+                  kahootBlocks[index]?.bg
+                }`}
+              >
+                <span className="text-3xl sm:text-4xl">{kahootBlocks[index]?.icon}</span>
+                <span className="text-left flex-1">{opt.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. MÀN HÌNH KẾT QUẢ CÂU HỎI (BIỂU ĐỒ CỘT 4 MÀU KAHOOT) */}
+      {roomState === "QUESTION_RESULT" && (
+        <div className="flex-1 flex flex-col justify-between p-6 max-w-5xl mx-auto w-full">
+          <div className="bg-white rounded-lg p-5 text-center shadow-lg border-b-4 border-gray-300 mb-6">
+            <span className="text-xs font-black uppercase text-gray-400 block mb-1">
+              Kết quả câu hỏi {questionNumber}
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-900">
+              {currentQuestion?.question}
+            </h2>
+          </div>
+
+          {/* Biểu đồ 4 cột màu hiển thị số người chọn */}
+          <div className="bg-[#381072] border-4 border-[#2b085a] rounded-lg p-8 flex-1 flex flex-col justify-end">
+            <div className="grid grid-cols-4 gap-4 sm:gap-8 h-64 items-end">
+              {currentQuestion?.options?.map((opt, idx) => {
+                const count = questionStats[idx] || 0;
+                const max = Math.max(...questionStats, 1);
+                const heightPercent = Math.max(15, (count / max) * 100);
+
+                return (
+                  <div key={opt.id} className="flex flex-col items-center gap-2 h-full justify-end">
+                    <span className="text-2xl sm:text-3xl font-black text-white">{count}</span>
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className={`w-full rounded-t-lg flex flex-col items-center justify-between p-2 shadow-lg transition-all duration-500 ${
+                        kahootBlocks[idx]?.bg
+                      }`}
+                    >
+                      {opt.isCorrect ? (
+                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#26890c] font-black">
+                          <Check className="w-6 h-6 stroke-[4]" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center text-white font-black">
+                          <X className="w-5 h-5 stroke-[3]" />
+                        </div>
+                      )}
+                      <span className="text-2xl text-white font-black">{kahootBlocks[idx]?.icon}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleShowLeaderboard}
+              className="px-8 py-3.5 rounded-lg font-black text-lg uppercase tracking-wider btn-kahoot-white flex items-center gap-2"
+            >
+              <span>Xem Bảng Điểm</span>
+              <ArrowRight className="w-5 h-5 stroke-[3]" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. MÀN HÌNH BẢNG XẾP HẠNG (SCOREBOARD) */}
+      {roomState === "LEADERBOARD" && (
+        <div className="flex-1 flex flex-col justify-between p-6 max-w-4xl mx-auto w-full">
+          <div className="text-center mb-6">
+            <h1 className="text-4xl font-black text-white tracking-tight uppercase">
+              Bảng Xếp Hạng
+            </h1>
+            <p className="text-purple-200 text-sm font-bold mt-1">
+              Top 5 dẫn đầu sau câu {questionNumber} / {totalQuestions}
+            </p>
+          </div>
+
+          <div className="space-y-3 flex-1 flex flex-col justify-center">
+            {leaderboard.map((p, index) => (
+              <div
+                key={p.id}
+                className="bg-white text-gray-900 rounded-lg p-4 flex items-center justify-between shadow-lg border-b-4 border-gray-300 animate-in slide-in-from-right duration-300"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-gray-300 flex items-center justify-center font-black text-lg text-gray-800">
+                    {index + 1}
+                  </div>
+                  <span className="text-3xl">{p.avatar}</span>
+                  <div>
+                    <span className="font-black text-xl text-gray-900 block">{p.nickname}</span>
+                    {p.streak >= 2 && (
+                      <span className="text-xs font-black text-[#e21b3c]">
+                        🔥 Chuỗi {p.streak} câu đúng
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-2xl font-black text-[#46178f]">
+                  {p.score} <span className="text-sm text-gray-500 font-bold">pts</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleNextQuestion}
+              className="px-8 py-3.5 rounded-lg font-black text-lg uppercase tracking-wider btn-kahoot-green flex items-center gap-2"
+            >
+              <span>{isLastQuestion ? "Xem Chung Cuộc" : "Câu tiếp theo"}</span>
+              <ArrowRight className="w-5 h-5 stroke-[3]" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MÀN HÌNH VINH DANH CHUNG CUỘC (PODIUM TOP 3) */}
+      {roomState === "GAME_OVER" && (
+        <div className="flex-1 flex flex-col justify-between p-6 max-w-5xl mx-auto w-full">
+          <div className="text-center mb-4">
+            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight uppercase">
+              Bục Vinh Danh Podium
+            </h1>
+            <p className="text-purple-200 text-sm font-bold mt-1">
+              Chúc mừng các bạn đã xuất sắc chiến thắng trò chơi!
+            </p>
+          </div>
+
+          {/* 3 Bục Podium Kahoot */}
+          <div className="flex items-end justify-center gap-4 sm:gap-8 pt-8 flex-1">
+            {/* Hạng 2 (Bên trái) */}
+            <div className="flex-1 max-w-[200px] flex flex-col items-center">
+              {podium.second ? (
+                <>
+                  <span className="text-4xl mb-2">{podium.second.avatar}</span>
+                  <div className="font-black text-white text-base mb-1 truncate w-full text-center">
+                    {podium.second.nickname}
+                  </div>
+                  <div className="text-xs text-purple-200 font-black mb-2">
+                    {podium.second.score} pts
+                  </div>
+                  <div className="w-full h-44 rounded-t-lg bg-gray-300 border-t-4 border-white flex flex-col items-center justify-center shadow-xl">
+                    <span className="text-5xl font-black text-gray-800">2</span>
+                    <span className="text-xs font-black text-gray-700 uppercase">Hạng 2</span>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-44 bg-white/10 rounded-t-lg" />
+              )}
+            </div>
+
+            {/* Hạng 1 (Chính giữa cao nhất) */}
+            <div className="flex-1 max-w-[240px] flex flex-col items-center">
+              {podium.first ? (
+                <>
+                  <div className="text-5xl mb-2 animate-bounce">👑</div>
+                  <span className="text-5xl mb-2">{podium.first.avatar}</span>
+                  <div className="font-black text-[#ffa602] text-xl mb-1 truncate w-full text-center">
+                    {podium.first.nickname}
+                  </div>
+                  <div className="text-sm text-yellow-300 font-black mb-2">
+                    {podium.first.score} pts
+                  </div>
+                  <div className="w-full h-64 rounded-t-lg bg-[#ffa602] border-t-4 border-yellow-200 flex flex-col items-center justify-center shadow-2xl">
+                    <span className="text-6xl font-black text-gray-900">1</span>
+                    <span className="text-sm font-black text-gray-900 uppercase">Quán Quân</span>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-64 bg-white/10 rounded-t-lg" />
+              )}
+            </div>
+
+            {/* Hạng 3 (Bên phải) */}
+            <div className="flex-1 max-w-[200px] flex flex-col items-center">
+              {podium.third ? (
+                <>
+                  <span className="text-4xl mb-2">{podium.third.avatar}</span>
+                  <div className="font-black text-white text-base mb-1 truncate w-full text-center">
+                    {podium.third.nickname}
+                  </div>
+                  <div className="text-xs text-purple-200 font-black mb-2">
+                    {podium.third.score} pts
+                  </div>
+                  <div className="w-full h-32 rounded-t-lg bg-[#b06126] border-t-4 border-orange-200 flex flex-col items-center justify-center shadow-xl">
+                    <span className="text-4xl font-black text-white">3</span>
+                    <span className="text-xs font-black text-orange-200 uppercase">Hạng 3</span>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-32 bg-white/10 rounded-t-lg" />
+              )}
+            </div>
+          </div>
+
+          {/* Nút Xuất Excel và Về Trang Chủ */}
+          <div className="mt-8 pt-4 border-t-2 border-white/10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={handleExportExcel}
+              className="px-6 py-3.5 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-green flex items-center gap-2"
+            >
+              <Download className="w-5 h-5 stroke-[3]" />
+              Xuất Báo Cáo Excel (.xlsx)
+            </button>
+
+            <button
+              onClick={onLeave}
+              className="px-6 py-3.5 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-white"
+            >
+              Về Trang Chủ
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

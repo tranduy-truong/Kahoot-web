@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #46178f;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Kahoot Chunky 3D Buttons */
+.btn-kahoot-3d {
+  transition: all 0.1s ease;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+.btn-kahoot-3d:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.25);
+}
+
+.btn-kahoot-white {
+  background-color: #ffffff;
+  color: #333333;
+  box-shadow: 0 4px 0 #cccccc;
+}
+.btn-kahoot-white:hover {
+  background-color: #f2f2f2;
+}
+.btn-kahoot-white:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #cccccc;
+}
+
+.btn-kahoot-black {
+  background-color: #333333;
+  color: #ffffff;
+  box-shadow: 0 4px 0 #111111;
+}
+.btn-kahoot-black:hover {
+  background-color: #222222;
+}
+.btn-kahoot-black:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #111111;
+}
+
+.btn-kahoot-green {
+  background-color: #26890c;
+  color: #ffffff;
+  box-shadow: 0 4px 0 #1b6308;
+}
+.btn-kahoot-green:hover {
+  background-color: #2da10e;
+}
+.btn-kahoot-green:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #1b6308;
+}
+
+/* 4 Khối màu Kahoot Huyền Thoại */
+.kahoot-card-red {
+  background-color: #e21b3c;
+  box-shadow: 0 6px 0 #9e1027;
+}
+.kahoot-card-red:hover {
+  background-color: #eb2849;
+}
+.kahoot-card-red:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 #9e1027;
+}
+
+.kahoot-card-blue {
+  background-color: #1368ce;
+  box-shadow: 0 6px 0 #0a4691;
+}
+.kahoot-card-blue:hover {
+  background-color: #1a75e3;
+}
+.kahoot-card-blue:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 #0a4691;
+}
+
+.kahoot-card-yellow {
+  background-color: #d89e00;
+  box-shadow: 0 6px 0 #946c00;
+}
+.kahoot-card-yellow:hover {
+  background-color: #e8ab02;
+}
+.kahoot-card-yellow:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 #946c00;
+}
+
+.kahoot-card-green {
+  background-color: #26890c;
+  box-shadow: 0 6px 0 #1b6308;
+}
+.kahoot-card-green:hover {
+  background-color: #2da10e;
+}
+.kahoot-card-green:active {
+  transform: translateY(6px);
+  box-shadow: 0 0 0 #1b6308;
+}
+
+/* Floating Reaction Animation */
+@keyframes kahootFloatUp {
+  0% {
+    transform: translateY(0) scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-300px) scale(1.3);
+    opacity: 0;
+  }
+}
+.animate-float-up {
+  animation: kahootFloatUp 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
