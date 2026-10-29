@@ -38,6 +38,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setCurrentQuestion({ question: questionTitle });
       setAnsweredCount(0);
       sounds.stopLobbyMusic();
+      sounds.stopQuestionBeat();
       setIsMusicPlaying(false);
       sounds.playPop();
     });
@@ -49,6 +50,9 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setTotalQuestions(totalQuestions);
       setRemainingTime(timeLimit);
       setAnsweredCount(0);
+
+      // Kích hoạt nhạc nền hồi hộp dồn dập chuẩn Kahoot!
+      sounds.startQuestionBeat();
     });
 
     socket.on("timer_tick", ({ remaining }) => {
@@ -64,6 +68,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setRoomState("QUESTION_RESULT");
       setCurrentQuestion(question);
       setQuestionStats(stats);
+      sounds.stopQuestionBeat(); // Dừng nhạc hồi hộp
       sounds.playPop();
     });
 
@@ -71,6 +76,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setRoomState("LEADERBOARD");
       setLeaderboard(topPlayers);
       setIsLastQuestion(isLastQuestion);
+      sounds.stopQuestionBeat();
       sounds.playPop();
     });
 
@@ -78,6 +84,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setRoomState("GAME_OVER");
       setPodium(podium);
       triggerConfetti();
+      sounds.stopQuestionBeat();
       sounds.playVictory();
     });
 
@@ -90,6 +97,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
 
     return () => {
       sounds.stopLobbyMusic();
+      sounds.stopQuestionBeat();
       socket.off("player_joined");
       socket.off("player_left");
       socket.off("question_intro");
@@ -135,12 +143,22 @@ export default function HostScreen({ roomData, socket, onLeave }) {
     }
   };
 
+  // 4 khối màu trắc nghiệm thông thường
   const kahootBlocks = [
     { bg: "kahoot-card-red", icon: "▲", name: "Đỏ" },
     { bg: "kahoot-card-blue", icon: "◆", name: "Lam" },
     { bg: "kahoot-card-yellow", icon: "●", name: "Vàng" },
     { bg: "kahoot-card-green", icon: "■", name: "Lục" }
   ];
+
+  // 2 khối màu cho Đúng / Sai (True / False)
+  const trueFalseBlocks = [
+    { bg: "kahoot-card-blue", icon: "◆", name: "ĐÚNG" },
+    { bg: "kahoot-card-red", icon: "▲", name: "SAI" }
+  ];
+
+  const isTrueFalse = currentQuestion?.type === "TRUE_FALSE";
+  const activeOptionConfigs = isTrueFalse ? trueFalseBlocks : kahootBlocks;
 
   return (
     <div className="min-h-screen bg-[#46178f] flex flex-col justify-between select-none relative overflow-hidden">
@@ -158,10 +176,9 @@ export default function HostScreen({ roomData, socket, onLeave }) {
         ))}
       </div>
 
-      {/* 1. MÀN HÌNH LOBBY PHÒNG CHỜ CHUẨN KAHOOT */}
+      {/* 1. MÀN HÌNH LOBBY PHÒNG CHỜ */}
       {roomState === "LOBBY" && (
         <div className="flex-1 flex flex-col justify-between">
-          {/* Top Bar màu trắng khổng lồ hiển thị PIN */}
           <div className="bg-white border-b-4 border-gray-300 py-4 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
             <div className="flex items-center gap-4">
               <div className="bg-gray-100 p-1.5 rounded border border-gray-300">
@@ -187,7 +204,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Nút bật tắt nhạc chờ */}
               <button
                 onClick={toggleMusic}
                 title="Bật/Tắt nhạc chờ Lobby"
@@ -200,7 +216,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
                 <Music className="w-5 h-5" />
               </button>
 
-              {/* Nút âm thanh chung */}
               <button
                 onClick={toggleSound}
                 title="Bật/Tắt âm thanh"
@@ -219,7 +234,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </div>
           </div>
 
-          {/* Vùng giữa: Danh sách người chơi hiển thị dạng thẻ Kahoot */}
           <div className="flex-1 max-w-6xl mx-auto w-full p-6 sm:p-10 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2 text-white font-black text-xl">
@@ -283,38 +297,57 @@ export default function HostScreen({ roomData, socket, onLeave }) {
         </div>
       )}
 
-      {/* 3. MÀN HÌNH CÂU HỎI ĐANG DIỄN RA (QUESTION_ACTIVE) */}
+      {/* 3. MÀN HÌNH CÂU HỎI ĐANG DIỄN RA (Có Ảnh minh họa & Nhạc hồi hộp) */}
       {roomState === "QUESTION_ACTIVE" && (
         <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto w-full">
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg shrink-0">
+          {/* Thanh trên: Tiêu đề câu hỏi, đồng hồ đếm ngược, số người trả lời */}
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-[#381072] border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg shrink-0">
               {remainingTime}
             </div>
 
-            <div className="flex-1 bg-white rounded-lg p-5 sm:p-7 shadow-xl border-b-4 border-gray-300 text-center">
+            <div className="flex-1 bg-white rounded-lg p-4 sm:p-6 shadow-xl border-b-4 border-gray-300 text-center">
               <span className="text-xs font-black uppercase tracking-wider text-gray-400 block mb-1">
-                Câu {questionNumber} / {totalQuestions}
+                Câu {questionNumber} / {totalQuestions} ({isTrueFalse ? "ĐÚNG / SAI" : "4 LỰA CHỌN"})
               </span>
-              <h2 className="text-2xl sm:text-4xl font-black text-gray-900 leading-snug">
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 leading-snug">
                 {currentQuestion?.question}
               </h2>
             </div>
 
-            <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex flex-col items-center justify-center text-white shadow-lg shrink-0">
+            <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-[#381072] border-4 border-white flex flex-col items-center justify-center text-white shadow-lg shrink-0">
               <span className="text-2xl font-black">{answeredCount}</span>
               <span className="text-[10px] font-black uppercase text-purple-200">Đã trả lời</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 items-stretch mt-4">
+          {/* Ảnh minh họa nếu có */}
+          {currentQuestion?.imageUrl && (
+            <div className="my-2 flex justify-center">
+              <div className="max-h-56 max-w-lg rounded-xl overflow-hidden shadow-2xl border-4 border-white bg-black">
+                <img
+                  src={currentQuestion.imageUrl}
+                  alt="Minh họa"
+                  className="w-full h-full object-contain max-h-56"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Các khối màu đáp án (2 khối nếu Đúng/Sai, 4 khối nếu trắc nghiệm) */}
+          <div
+            className={`grid gap-4 flex-1 items-stretch mt-2 ${
+              isTrueFalse ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2"
+            }`}
+          >
             {currentQuestion?.options?.map((opt, index) => (
               <div
                 key={opt.id}
-                className={`rounded-lg p-6 sm:p-8 flex items-center gap-5 text-white font-black text-xl sm:text-2xl transition-all ${
-                  kahootBlocks[index]?.bg
+                className={`rounded-lg p-6 sm:p-7 flex items-center gap-5 text-white font-black text-xl sm:text-2xl transition-all ${
+                  activeOptionConfigs[index]?.bg
                 }`}
               >
-                <span className="text-3xl sm:text-4xl">{kahootBlocks[index]?.icon}</span>
+                <span className="text-3xl sm:text-4xl">{activeOptionConfigs[index]?.icon}</span>
                 <span className="text-left flex-1">{opt.text}</span>
               </div>
             ))}
@@ -334,8 +367,13 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </h2>
           </div>
 
+          {/* Biểu đồ cột */}
           <div className="bg-[#381072] border-4 border-[#2b085a] rounded-lg p-8 flex-1 flex flex-col justify-end">
-            <div className="grid grid-cols-4 gap-4 sm:gap-8 h-64 items-end">
+            <div
+              className={`grid gap-4 sm:gap-8 h-64 items-end ${
+                isTrueFalse ? "grid-cols-2 max-w-md mx-auto w-full" : "grid-cols-4"
+              }`}
+            >
               {currentQuestion?.options?.map((opt, idx) => {
                 const count = questionStats[idx] || 0;
                 const max = Math.max(...questionStats, 1);
@@ -347,7 +385,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
                     <div
                       style={{ height: `${heightPercent}%` }}
                       className={`w-full rounded-t-lg flex flex-col items-center justify-between p-2 shadow-lg transition-all duration-500 ${
-                        kahootBlocks[idx]?.bg
+                        activeOptionConfigs[idx]?.bg
                       }`}
                     >
                       {opt.isCorrect ? (
@@ -359,7 +397,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
                           <X className="w-5 h-5 stroke-[3]" />
                         </div>
                       )}
-                      <span className="text-2xl text-white font-black">{kahootBlocks[idx]?.icon}</span>
+                      <span className="text-2xl text-white font-black">{activeOptionConfigs[idx]?.icon}</span>
                     </div>
                   </div>
                 );

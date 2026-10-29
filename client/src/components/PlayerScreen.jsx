@@ -5,6 +5,7 @@ import { sounds } from "../services/sound";
 export default function PlayerScreen({ playerData, socket, onLeave }) {
   const [playerState, setPlayerState] = useState("LOBBY");
   const [currentQuestionNumber, setCurrentQuestionNumber] = useState(1);
+  const [currentQuestionType, setCurrentQuestionType] = useState("MULTIPLE_CHOICE");
   const [remainingTime, setRemainingTime] = useState(15);
   const [powerUps, setPowerUps] = useState(playerData?.player?.powerUps || { fiftyFifty: 1, doublePoints: 1 });
   const [eliminatedOptions, setEliminatedOptions] = useState([]);
@@ -16,17 +17,19 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
   const EMOJIS = ["❤️", "😂", "🔥", "👏", "⚡"];
 
   useEffect(() => {
-    socket.on("question_intro", ({ questionNumber }) => {
+    socket.on("question_intro", ({ questionNumber, questionType }) => {
       setPlayerState("INTRO");
       setCurrentQuestionNumber(questionNumber);
+      setCurrentQuestionType(questionType || "MULTIPLE_CHOICE");
       setEliminatedOptions([]);
       setUseDoublePointsThisRound(false);
       sounds.playPop();
     });
 
-    socket.on("question_start_player", ({ questionNumber, timeLimit, powerUps: pUps }) => {
+    socket.on("question_start_player", ({ questionNumber, questionType, timeLimit, powerUps: pUps }) => {
       setPlayerState("PLAYING");
       setCurrentQuestionNumber(questionNumber);
+      setCurrentQuestionType(questionType || "MULTIPLE_CHOICE");
       setRemainingTime(timeLimit);
       if (pUps) setPowerUps(pUps);
     });
@@ -80,7 +83,7 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
   };
 
   const handleUseFiftyFifty = () => {
-    if (powerUps.fiftyFifty > 0 && playerState === "PLAYING") {
+    if (powerUps.fiftyFifty > 0 && playerState === "PLAYING" && currentQuestionType !== "TRUE_FALSE") {
       sounds.playPop();
       setPowerUps((prev) => ({ ...prev, fiftyFifty: prev.fiftyFifty - 1 }));
       socket.emit("use_fifty_fifty");
@@ -106,9 +109,16 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
     { id: 3, theme: "kahoot-card-green", icon: "■" }
   ];
 
+  const trueFalseOptions = [
+    { id: 0, theme: "kahoot-card-blue", icon: "◆", text: "ĐÚNG" },
+    { id: 1, theme: "kahoot-card-red", icon: "▲", text: "SAI" }
+  ];
+
+  const isTrueFalse = currentQuestionType === "TRUE_FALSE";
+
   return (
     <div className="h-screen w-screen flex flex-col justify-between select-none overflow-hidden bg-[#46178f]">
-      {/* Top Header mỏng hiển thị Nickname & Điểm */}
+      {/* Top Header mỏng */}
       <div className="bg-[#381072] border-b-2 border-[#2b085a] px-4 py-2.5 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <span className="text-2xl">{playerData?.player?.avatar}</span>
@@ -128,7 +138,7 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
         </div>
       </div>
 
-      {/* 1. MÀN HÌNH LOBBY TRÊN ĐIỆN THOẠI */}
+      {/* 1. MÀN HÌNH LOBBY */}
       {playerState === "LOBBY" && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
           <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center text-4xl shadow-xl">
@@ -152,13 +162,13 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       {playerState === "INTRO" && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4 bg-[#381072]">
           <span className="text-xs font-black uppercase text-purple-300 tracking-wider">
-            CÂU HỎI {currentQuestionNumber}
+            CÂU HỎI {currentQuestionNumber} ({isTrueFalse ? "ĐÚNG / SAI" : "4 LỰA CHỌN"})
           </span>
           <h2 className="text-4xl font-black text-white">Sẵn sàng!</h2>
         </div>
       )}
 
-      {/* 3. MÀN HÌNH 4 KHỐI MÀU HUYỀN THOẠI CỦA KAHOOT (PLAYING) */}
+      {/* 3. MÀN HÌNH CHỌN ĐÁP ÁN (2 Khối nếu Đúng/Sai, 4 Khối nếu Trắc nghiệm) */}
       {playerState === "PLAYING" && (
         <div className="flex-1 flex flex-col justify-between p-3 gap-3">
           <div className="flex items-center justify-between px-1">
@@ -167,19 +177,21 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
             </span>
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleUseFiftyFifty}
-                disabled={powerUps.fiftyFifty <= 0 || eliminatedOptions.length > 0}
-                className={`px-3 py-1 rounded font-black text-xs uppercase flex items-center gap-1 ${
-                  powerUps.fiftyFifty > 0 && eliminatedOptions.length === 0
-                    ? "bg-white text-gray-900 shadow"
-                    : "bg-white/20 text-white/40 cursor-not-allowed"
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 fill-current" />
-                50:50 ({powerUps.fiftyFifty})
-              </button>
+              {!isTrueFalse && (
+                <button
+                  type="button"
+                  onClick={handleUseFiftyFifty}
+                  disabled={powerUps.fiftyFifty <= 0 || eliminatedOptions.length > 0}
+                  className={`px-3 py-1 rounded font-black text-xs uppercase flex items-center gap-1 ${
+                    powerUps.fiftyFifty > 0 && eliminatedOptions.length === 0
+                      ? "bg-white text-gray-900 shadow"
+                      : "bg-white/20 text-white/40 cursor-not-allowed"
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  50:50 ({powerUps.fiftyFifty})
+                </button>
+              )}
 
               <button
                 type="button"
@@ -199,31 +211,47 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 flex-1">
-            {kahootOptions.map((btn) => {
-              const isEliminated = eliminatedOptions.includes(btn.id);
-              return (
+          {/* Nếu là Đúng / Sai -> 2 khối màu siêu to */}
+          {isTrueFalse ? (
+            <div className="grid grid-cols-1 gap-4 flex-1">
+              {trueFalseOptions.map((btn) => (
                 <button
                   key={btn.id}
-                  disabled={isEliminated}
                   onClick={() => handleSelectAnswer(btn.id)}
-                  className={`w-full h-full rounded-lg flex items-center justify-center transition-all ${
-                    btn.theme
-                  } ${
-                    isEliminated
-                      ? "opacity-15 cursor-not-allowed"
-                      : "active:scale-95 cursor-pointer"
-                  }`}
+                  className={`w-full h-full rounded-xl flex items-center justify-center gap-4 transition-all ${btn.theme} active:scale-95 cursor-pointer shadow-lg`}
                 >
-                  <span className="text-6xl text-white drop-shadow-md select-none">{btn.icon}</span>
+                  <span className="text-5xl text-white drop-shadow-md">{btn.icon}</span>
+                  <span className="text-4xl text-white font-black tracking-wider">{btn.text}</span>
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 flex-1">
+              {kahootOptions.map((btn) => {
+                const isEliminated = eliminatedOptions.includes(btn.id);
+                return (
+                  <button
+                    key={btn.id}
+                    disabled={isEliminated}
+                    onClick={() => handleSelectAnswer(btn.id)}
+                    className={`w-full h-full rounded-lg flex items-center justify-center transition-all ${
+                      btn.theme
+                    } ${
+                      isEliminated
+                        ? "opacity-15 cursor-not-allowed"
+                        : "active:scale-95 cursor-pointer"
+                    }`}
+                  >
+                    <span className="text-6xl text-white drop-shadow-md select-none">{btn.icon}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* 4. MÀN HÌNH ĐÃ GỬI LỰA CHỌN (SUBMITTED) */}
+      {/* 4. MÀN HÌNH ĐÃ GỬI LỰA CHỌN */}
       {playerState === "SUBMITTED" && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-[#381072]">
           <div className="w-16 h-16 rounded-full border-4 border-white/20 border-t-white animate-spin mb-2" />
@@ -234,7 +262,7 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
         </div>
       )}
 
-      {/* 5. MÀN HÌNH KẾT QUẢ ĐÚNG / SAI CHUẨN MÀU KAHOOT */}
+      {/* 5. MÀN HÌNH KẾT QUẢ ĐÚNG / SAI */}
       {playerState === "RESULT" && (
         <div
           className={`flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4 ${
@@ -296,7 +324,7 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
         </div>
       )}
 
-      {/* Khay Emoji Reaction ở đáy màn hình */}
+      {/* Khay Emoji Reaction */}
       <div className="bg-[#381072] border-t-2 border-[#2b085a] px-3 py-2 flex items-center justify-around">
         {EMOJIS.map((emoji) => (
           <button

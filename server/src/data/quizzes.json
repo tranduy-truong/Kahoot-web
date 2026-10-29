@@ -2,37 +2,41 @@
   {
     "id": "quiz-web-tech-1",
     "userId": "user_demo_01",
-    "title": "Thử tài Lập trình Web & Công nghệ",
+    "title": "Thử tài Lập trình Web & Công nghệ (Có Ảnh & Đúng/Sai)",
     "description": "Bộ câu hỏi trắc nghiệm kiểm tra kiến thức về React, JavaScript, HTML/CSS và Web Socket.",
     "coverImage": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80",
     "questions": [
       {
         "id": "q1",
-        "question": "Giao thức nào cho phép truyền dữ liệu hai chiều thời gian thực (Full-Duplex) giữa Client và Server?",
+        "type": "MULTIPLE_CHOICE",
+        "question": "Logo dưới đây thuộc về thư viện / framework nào của JavaScript?",
+        "imageUrl": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600&auto=format&fit=crop&q=80",
         "timeLimit": 15,
         "points": 1000,
         "options": [
-          { "id": 0, "text": "HTTP/1.1", "isCorrect": false },
-          { "id": 1, "text": "WebSocket", "isCorrect": true },
-          { "id": 2, "text": "FTP", "isCorrect": false },
-          { "id": 3, "text": "DNS", "isCorrect": false }
+          { "id": 0, "text": "Vue.js", "isCorrect": false },
+          { "id": 1, "text": "React.js", "isCorrect": true },
+          { "id": 2, "text": "Angular", "isCorrect": false },
+          { "id": 3, "text": "Svelte", "isCorrect": false }
         ]
       },
       {
         "id": "q2",
-        "question": "Trong React, Hook nào được sử dụng phổ biến nhất để xử lý side-effects (như gọi API, Socket)?",
+        "type": "TRUE_FALSE",
+        "question": "Giao thức WebSocket chỉ cho phép truyền dữ liệu một chiều từ Server về Client?",
+        "imageUrl": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80",
         "timeLimit": 15,
         "points": 1000,
         "options": [
-          { "id": 0, "text": "useState", "isCorrect": false },
-          { "id": 1, "text": "useContext", "isCorrect": false },
-          { "id": 2, "text": "useEffect", "isCorrect": true },
-          { "id": 3, "text": "useReducer", "isCorrect": false }
+          { "id": 0, "text": "ĐÚNG", "isCorrect": false },
+          { "id": 1, "text": "SAI (WebSocket là Full-Duplex 2 chiều)", "isCorrect": true }
         ]
       },
       {
         "id": "q3",
+        "type": "MULTIPLE_CHOICE",
         "question": "CSS Framework nào sử dụng phương pháp Utility-first (viết class trực tiếp trong HTML)?",
+        "imageUrl": "",
         "timeLimit": 15,
         "points": 1000,
         "options": [
@@ -44,59 +48,14 @@
       },
       {
         "id": "q4",
-        "question": "Phương thức HTTP nào an toàn và Idempotent dùng để đọc/lấy tài nguyên từ server?",
+        "type": "TRUE_FALSE",
+        "question": "JavaScript là ngôn ngữ chạy đơn luồng (Single-threaded) nhưng xử lý bất đồng bộ nhờ Event Loop?",
+        "imageUrl": "",
         "timeLimit": 15,
         "points": 1000,
         "options": [
-          { "id": 0, "text": "POST", "isCorrect": false },
-          { "id": 1, "text": "GET", "isCorrect": true },
-          { "id": 2, "text": "DELETE", "isCorrect": false },
-          { "id": 3, "text": "PATCH", "isCorrect": false }
-        ]
-      },
-      {
-        "id": "q5",
-        "question": "Cơ chế nào của JavaScript giúp xử lý các tác vụ bất đồng bộ (Asynchronous)?",
-        "timeLimit": 20,
-        "points": 1000,
-        "options": [
-          { "id": 0, "text": "Event Loop & Callback Queue", "isCorrect": true },
-          { "id": 1, "text": "Multi-threading Native", "isCorrect": false },
-          { "id": 2, "text": "DOM Tree Parsing", "isCorrect": false },
-          { "id": 3, "text": "Garbage Collector", "isCorrect": false }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "quiz-general-trivia",
-    "userId": "user_demo_01",
-    "title": "Đố vui Kiến thức Tổng hợp",
-    "description": "Bộ câu hỏi thú vị về khoa học, địa lý và đời sống.",
-    "coverImage": "https://images.unsplash.com/photo-1546776310-eef45dd6d63c?w=600&auto=format&fit=crop&q=80",
-    "questions": [
-      {
-        "id": "gt1",
-        "question": "Hành tinh nào gần Mặt Trời nhất trong Hệ Mặt Trời?",
-        "timeLimit": 15,
-        "points": 1000,
-        "options": [
-          { "id": 0, "text": "Sao Thủy (Mercury)", "isCorrect": true },
-          { "id": 1, "text": "Sao Hỏa (Mars)", "isCorrect": false },
-          { "id": 2, "text": "Sao Kim (Venus)", "isCorrect": false },
-          { "id": 3, "text": "Trái Đất", "isCorrect": false }
-        ]
-      },
-      {
-        "id": "gt2",
-        "question": "Ngôn ngữ nào được coi là ngôn ngữ lập trình đầu tiên trên thế giới?",
-        "timeLimit": 15,
-        "points": 1000,
-        "options": [
-          { "id": 0, "text": "C", "isCorrect": false },
-          { "id": 1, "text": "Fortran / Ada's Algorithm", "isCorrect": true },
-          { "id": 2, "text": "Python", "isCorrect": false },
-          { "id": 3, "text": "Assembly", "isCorrect": false }
+          { "id": 0, "text": "ĐÚNG", "isCorrect": true },
+          { "id": 1, "text": "SAI", "isCorrect": false }
         ]
       }
     ]

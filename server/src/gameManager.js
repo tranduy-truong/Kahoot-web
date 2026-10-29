@@ -3,8 +3,8 @@ import xlsx from "xlsx";
 export class GameManager {
   constructor(io) {
     this.io = io;
-    this.rooms = new Map(); // pin -> roomObject
-    this.playerSocketMap = new Map(); // socketId -> { pin, playerId }
+    this.rooms = new Map();
+    this.playerSocketMap = new Map();
   }
 
   generatePin() {
@@ -21,15 +21,14 @@ export class GameManager {
       pin,
       hostSocketId,
       quiz,
-      status: "LOBBY", // LOBBY, QUESTION_INTRO, QUESTION_ACTIVE, QUESTION_RESULT, LEADERBOARD, GAME_OVER
+      status: "LOBBY",
       currentQuestionIndex: -1,
-      players: new Map(), // playerId -> playerInfo
+      players: new Map(),
       questionTimer: null,
       questionRemainingTime: 0,
       questionStartTime: 0,
-      currentAnswers: new Map(), // playerId -> { optionId, timeSpent, pointsEarned, isCorrect, usedDoublePoints }
-      historyLogs: [], // Log từng câu để xuất báo cáo Excel
-      reactions: []
+      currentAnswers: new Map(),
+      historyLogs: []
     };
 
     this.rooms.set(pin, room);
@@ -45,7 +44,6 @@ export class GameManager {
     if (!room) return { error: "Không tìm thấy phòng với mã PIN này!" };
     if (room.status !== "LOBBY") return { error: "Trò chơi đã bắt đầu hoặc đã kết thúc!" };
 
-    // Kiểm tra trùng nickname
     for (const player of room.players.values()) {
       if (player.nickname.trim().toLowerCase() === nickname.trim().toLowerCase()) {
         return { error: "Tên biệt danh này đã có người sử dụng trong phòng!" };
@@ -61,10 +59,9 @@ export class GameManager {
       score: 0,
       streak: 0,
       powerUps: {
-        fiftyFifty: 1, // 1 lần sử dụng 50:50
-        doublePoints: 1 // 1 lần nhân đôi điểm
-      },
-      lastAnswer: null
+        fiftyFifty: 1,
+        doublePoints: 1
+      }
     };
 
     room.players.set(playerId, player);
@@ -83,12 +80,10 @@ export class GameManager {
 
     if (room) {
       if (room.hostSocketId === socketId) {
-        // Host thoát phòng -> Đóng phòng
         this.io.to(pin).emit("room_closed", { message: "Chủ phòng đã thoát trò chơi!" });
         if (room.questionTimer) clearInterval(room.questionTimer);
         this.rooms.delete(pin);
       } else {
-        // Người chơi thoát phòng
         room.players.delete(playerId);
         this.io.to(room.hostSocketId).emit("player_left", {
           playerId,
@@ -115,10 +110,11 @@ export class GameManager {
       questionNumber: room.currentQuestionIndex + 1,
       totalQuestions: room.quiz.questions.length,
       questionTitle: currentQ.question,
+      questionType: currentQ.type || "MULTIPLE_CHOICE",
+      imageUrl: currentQ.imageUrl || "",
       timeLimit: currentQ.timeLimit
     });
 
-    // Sau 3 giây giới thiệu -> chính thức bắt đầu câu hỏi
     setTimeout(() => {
       if (this.rooms.has(room.pin) && room.status === "QUESTION_INTRO") {
         this.activateQuestion(room);
@@ -132,7 +128,6 @@ export class GameManager {
     room.questionRemainingTime = currentQ.timeLimit;
     room.questionStartTime = Date.now();
 
-    // Gửi cho Host đầy đủ câu hỏi và 4 lựa chọn
     this.io.to(room.hostSocketId).emit("question_start_host", {
       question: currentQ,
       questionNumber: room.currentQuestionIndex + 1,
@@ -140,18 +135,17 @@ export class GameManager {
       timeLimit: currentQ.timeLimit
     });
 
-    // Gửi cho Player 4 lựa chọn màu để click
     for (const player of room.players.values()) {
       this.io.to(player.socketId).emit("question_start_player", {
         questionNumber: room.currentQuestionIndex + 1,
         totalQuestions: room.quiz.questions.length,
         timeLimit: currentQ.timeLimit,
+        questionType: currentQ.type || "MULTIPLE_CHOICE",
         optionsCount: currentQ.options.length,
         powerUps: player.powerUps
       });
     }
 
-    // Bộ đếm thời gian
     if (room.questionTimer) clearInterval(room.questionTimer);
     room.questionTimer = setInterval(() => {
       room.questionRemainingTime -= 1;
@@ -171,24 +165,21 @@ export class GameManager {
     const { pin, playerId } = mapping;
     const room = this.rooms.get(pin);
     if (!room || room.status !== "QUESTION_ACTIVE") return;
-
-    if (room.currentAnswers.has(playerId)) return; // Không cho trả lời 2 lần
+    if (room.currentAnswers.has(playerId)) return;
 
     const player = room.players.get(playerId);
     if (!player) return;
 
     const currentQ = room.quiz.questions[room.currentQuestionIndex];
     const timeSpent = (Date.now() - room.questionStartTime) / 1000;
-    const selectedOption = currentQ.options.find(opt => opt.id === optionId);
+    const selectedOption = currentQ.options.find((opt) => opt.id === optionId);
     const isCorrect = selectedOption ? selectedOption.isCorrect : false;
 
     let pointsEarned = 0;
     if (isCorrect) {
-      // Công thức tính điểm Kahoot: Điểm tối đa * (1 - (thời gian trả lời / (thời gian tối đa * 2)))
-      const speedFactor = Math.max(0.5, 1 - (timeSpent / (currentQ.timeLimit * 2)));
+      const speedFactor = Math.max(0.5, 1 - timeSpent / (currentQ.timeLimit * 2));
       let basePoints = Math.round(currentQ.points * speedFactor);
 
-      // Tính thưởng Streak combo
       player.streak += 1;
       let streakBonus = 0;
       if (player.streak >= 2) streakBonus = 100;
@@ -204,7 +195,7 @@ export class GameManager {
 
       player.score += pointsEarned;
     } else {
-      player.streak = 0; // Đứt chuỗi streak
+      player.streak = 0;
     }
 
     room.currentAnswers.set(playerId, {
@@ -215,13 +206,11 @@ export class GameManager {
       usedDouble
     });
 
-    // Thông báo cho Host cập nhật số lượng người đã trả lời
     this.io.to(room.hostSocketId).emit("answer_submitted_update", {
       answeredCount: room.currentAnswers.size,
       totalPlayers: room.players.size
     });
 
-    // Nếu tất cả người chơi đều đã trả lời -> kết thúc câu hỏi sớm
     if (room.currentAnswers.size >= room.players.size && room.players.size > 0) {
       if (room.questionTimer) clearInterval(room.questionTimer);
       this.endCurrentQuestion(room);
@@ -239,11 +228,12 @@ export class GameManager {
     const player = room.players.get(playerId);
     if (!player || player.powerUps.fiftyFifty <= 0) return;
 
+    const currentQ = room.quiz.questions[room.currentQuestionIndex];
+    if (currentQ.type === "TRUE_FALSE") return; // Đúng/Sai có 2 đáp án, không dùng 50:50
+
     player.powerUps.fiftyFifty -= 1;
 
-    const currentQ = room.quiz.questions[room.currentQuestionIndex];
-    // Tìm các đáp án sai và loại ngẫu nhiên 2 đáp án
-    const wrongOptions = currentQ.options.filter(opt => !opt.isCorrect).map(opt => opt.id);
+    const wrongOptions = currentQ.options.filter((opt) => !opt.isCorrect).map((opt) => opt.id);
     const shuffled = wrongOptions.sort(() => 0.5 - Math.random());
     const eliminated = shuffled.slice(0, 2);
 
@@ -254,25 +244,24 @@ export class GameManager {
     room.status = "QUESTION_RESULT";
     const currentQ = room.quiz.questions[room.currentQuestionIndex];
 
-    // Thống kê số lượng người chọn từng đáp án
-    const stats = [0, 0, 0, 0];
+    const stats = new Array(currentQ.options.length).fill(0);
     for (const ans of room.currentAnswers.values()) {
-      if (ans.optionId >= 0 && ans.optionId < 4) {
+      if (ans.optionId >= 0 && ans.optionId < currentQ.options.length) {
         stats[ans.optionId]++;
       }
     }
 
-    // Lưu log lịch sử cho câu này (dùng xuất Excel)
     room.historyLogs.push({
       questionNumber: room.currentQuestionIndex + 1,
       questionTitle: currentQ.question,
-      correctOption: currentQ.options.find(o => o.isCorrect)?.text || "",
+      questionType: currentQ.type || "MULTIPLE_CHOICE",
+      correctOption: currentQ.options.find((o) => o.isCorrect)?.text || "",
       stats,
-      playerAnswers: Array.from(room.players.values()).map(p => {
+      playerAnswers: Array.from(room.players.values()).map((p) => {
         const ans = room.currentAnswers.get(p.id);
         return {
           nickname: p.nickname,
-          answered: ans ? true : false,
+          answered: !!ans,
           isCorrect: ans ? ans.isCorrect : false,
           timeSpent: ans ? ans.timeSpent : 0,
           pointsEarned: ans ? ans.pointsEarned : 0,
@@ -281,14 +270,12 @@ export class GameManager {
       })
     });
 
-    // Gửi kết quả cho Host
     this.io.to(room.hostSocketId).emit("question_result_host", {
       question: currentQ,
       stats,
       totalAnswers: room.currentAnswers.size
     });
 
-    // Gửi kết quả riêng cho từng Player
     for (const player of room.players.values()) {
       const ans = room.currentAnswers.get(player.id);
       this.io.to(player.socketId).emit("question_result_player", {
@@ -305,8 +292,7 @@ export class GameManager {
     if (!room) return;
 
     room.status = "LEADERBOARD";
-    const sortedPlayers = Array.from(room.players.values())
-      .sort((a, b) => b.score - a.score);
+    const sortedPlayers = Array.from(room.players.values()).sort((a, b) => b.score - a.score);
 
     this.io.to(room.pin).emit("leaderboard_update", {
       topPlayers: sortedPlayers.slice(0, 5),
@@ -328,8 +314,7 @@ export class GameManager {
 
   endGame(room) {
     room.status = "GAME_OVER";
-    const sortedPlayers = Array.from(room.players.values())
-      .sort((a, b) => b.score - a.score);
+    const sortedPlayers = Array.from(room.players.values()).sort((a, b) => b.score - a.score);
 
     this.io.to(room.pin).emit("game_over", {
       podium: {
@@ -357,7 +342,6 @@ export class GameManager {
       createdAt: Date.now()
     };
 
-    // Broadcast tới Host để hiện animation bay lên màn hình lớn
     this.io.to(room.hostSocketId).emit("floating_reaction", reaction);
   }
 
@@ -367,27 +351,26 @@ export class GameManager {
 
     const workbook = xlsx.utils.book_new();
 
-    // 1. Sheet Tổng kết điểm học sinh
     const leaderboardData = Array.from(room.players.values())
       .sort((a, b) => b.score - a.score)
       .map((p, idx) => ({
-        "Hạng": idx + 1,
-        "Biệt danh / Học sinh": p.nickname,
+        Hạng: idx + 1,
+        "Biệt danh / Người chơi": p.nickname,
         "Tổng điểm": p.score,
         "Chuỗi đúng kỷ lục": p.streak
       }));
     const wsLeaderboard = xlsx.utils.json_to_sheet(leaderboardData);
     xlsx.utils.book_append_sheet(workbook, wsLeaderboard, "Bảng Điểm Xếp Hạng");
 
-    // 2. Sheet Chi tiết câu hỏi
-    const questionSummary = room.historyLogs.map(log => ({
+    const questionSummary = room.historyLogs.map((log) => ({
       "Câu số": log.questionNumber,
+      "Loại câu hỏi": log.questionType === "TRUE_FALSE" ? "Đúng / Sai" : "Trắc nghiệm 4 lựa chọn",
       "Nội dung câu hỏi": log.questionTitle,
       "Đáp án đúng": log.correctOption,
-      "Số người chọn Đỏ (1)": log.stats[0],
-      "Số người chọn Lam (2)": log.stats[1],
-      "Số người chọn Vàng (3)": log.stats[2],
-      "Số người chọn Lục (4)": log.stats[3]
+      "Số người chọn Lựa chọn 1": log.stats[0] || 0,
+      "Số người chọn Lựa chọn 2": log.stats[1] || 0,
+      "Số người chọn Lựa chọn 3": log.stats[2] || 0,
+      "Số người chọn Lựa chọn 4": log.stats[3] || 0
     }));
     const wsQuestions = xlsx.utils.json_to_sheet(questionSummary);
     xlsx.utils.book_append_sheet(workbook, wsQuestions, "Thống Kê Câu Hỏi");
