@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { PlusCircle, Edit, Trash2, Play, Download, BookOpen, HelpCircle, History, Sparkles } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Play, Download, BookOpen, HelpCircle, History } from "lucide-react";
 
-export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQuiz }) {
+export default function MyQuizzes({ user, onHostQuiz, onEditQuiz, onCreateQuiz }) {
   const [quizzes, setQuizzes] = useState([]);
-  const [stats, setStats] = useState({ totalQuizzes: 0, totalQuestions: 0, totalMatches: 0 });
   const [history, setHistory] = useState([]);
-  const [activeTab, setActiveTab] = useState("quizzes"); // "quizzes" hoặc "history"
+  const [activeTab, setActiveTab] = useState("quizzes");
   const [loading, setLoading] = useState(true);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
-  const fetchData = async () => {
+  const fetchMyQuizzes = async () => {
     try {
-      const [resQuizzes, resStats, resHistory] = await Promise.all([
-        fetch(`${backendUrl}/api/quizzes`).then((r) => r.json()),
-        fetch(`${backendUrl}/api/admin/stats`).then((r) => r.json()),
+      // Chỉ lấy các bộ đề do chính tài khoản này quản lý
+      const url = user?.id
+        ? `${backendUrl}/api/quizzes?userId=${user.id}`
+        : `${backendUrl}/api/quizzes`;
+
+      const [resQuizzes, resHistory] = await Promise.all([
+        fetch(url).then((r) => r.json()),
         fetch(`${backendUrl}/api/admin/history`).then((r) => r.json())
       ]);
       setQuizzes(resQuizzes);
-      setStats(resStats);
       setHistory(resHistory);
     } catch (err) {
       console.error(err);
@@ -28,8 +30,8 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
   };
 
   useEffect(() => {
-    fetchData();
-  }, [backendUrl]);
+    fetchMyQuizzes();
+  }, [backendUrl, user?.id]);
 
   const handleDeleteQuiz = async (quizId, title) => {
     if (!window.confirm(`Bạn có chắc chắn muốn xóa bộ đề: "${title}" không?`)) return;
@@ -40,29 +42,29 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
       });
       if (res.ok) {
         alert("Đã xóa bộ đề thành công!");
-        fetchData();
+        fetchMyQuizzes();
       }
     } catch (err) {
       alert("Lỗi khi xóa bộ đề!");
     }
   };
 
+  const totalQuestions = quizzes.reduce((acc, q) => acc + (q.questions?.length || 0), 0);
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#f2f2f2] text-gray-900 py-8 px-4 sm:px-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Dashboard */}
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header Quản lý */}
         <div className="bg-white rounded-xl p-6 sm:p-8 shadow-sm border-b-4 border-gray-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-3 py-1 rounded bg-purple-100 text-[#46178f] font-black text-xs uppercase tracking-wider">
-                Hệ thống Quản trị Giáo viên
-              </span>
-            </div>
-            <h1 className="text-3xl font-black text-gray-900">
-              Xin chào, {user?.name || "Thầy/Cô"}! 👋
+            <span className="px-3 py-1 rounded bg-purple-100 text-[#46178f] font-black text-xs uppercase tracking-wider">
+              Quản lý câu hỏi cá nhân
+            </span>
+            <h1 className="text-3xl font-black text-gray-900 mt-1">
+              Danh sách câu hỏi của {user?.name || "bạn"}
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Quản lý ngân hàng câu hỏi, tổ chức phòng thi trực tuyến và xem lại báo cáo lớp học.
+            <p className="text-gray-500 text-sm mt-0.5">
+              Tất cả các bộ câu hỏi do bạn tạo và quản lý sẽ hiển thị tại đây.
             </p>
           </div>
 
@@ -71,19 +73,19 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
             className="px-6 py-3 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-green flex items-center gap-2 shadow"
           >
             <PlusCircle className="w-5 h-5 stroke-[3]" />
-            Tạo bộ đề mới
+            Tạo câu hỏi mới
           </button>
         </div>
 
-        {/* 3 Thẻ thống kê */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Thống kê nhanh */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-white rounded-xl p-5 shadow-sm border-b-4 border-gray-300 flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-purple-100 text-[#46178f] flex items-center justify-center">
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-xs font-black uppercase text-gray-400 block">Tổng số bộ đề</span>
-              <span className="text-3xl font-black text-gray-900">{stats.totalQuizzes}</span>
+              <span className="text-xs font-black uppercase text-gray-400 block">Số bộ đề của bạn</span>
+              <span className="text-3xl font-black text-gray-900">{quizzes.length}</span>
             </div>
           </div>
 
@@ -93,22 +95,12 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
             </div>
             <div>
               <span className="text-xs font-black uppercase text-gray-400 block">Tổng số câu hỏi</span>
-              <span className="text-3xl font-black text-gray-900">{stats.totalQuestions}</span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-5 shadow-sm border-b-4 border-gray-300 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-emerald-100 text-[#26890c] flex items-center justify-center">
-              <History className="w-6 h-6" />
-            </div>
-            <div>
-              <span className="text-xs font-black uppercase text-gray-400 block">Trận đấu đã tổ chức</span>
-              <span className="text-3xl font-black text-gray-900">{stats.totalMatches}</span>
+              <span className="text-3xl font-black text-gray-900">{totalQuestions}</span>
             </div>
           </div>
         </div>
 
-        {/* Tabs chuyển đổi */}
+        {/* Tabs */}
         <div className="flex border-b-2 border-gray-200 gap-4">
           <button
             onClick={() => setActiveTab("quizzes")}
@@ -118,7 +110,7 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
                 : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
-            Ngân hàng Đề thi ({quizzes.length})
+            Bộ đề của tôi ({quizzes.length})
           </button>
 
           <button
@@ -129,26 +121,34 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
                 : "border-transparent text-gray-400 hover:text-gray-700"
             }`}
           >
-            Lịch sử Phòng thi & Báo cáo ({history.length})
+            Lịch sử phòng thi ({history.length})
           </button>
         </div>
 
-        {/* TAB 1: DANH SÁCH BỘ ĐỀ */}
+        {/* TAB 1: DANH SÁCH BỘ ĐỀ CỦA TÔI */}
         {activeTab === "quizzes" && (
           <div className="bg-white rounded-xl shadow-sm border-b-4 border-gray-300 overflow-hidden">
             {loading ? (
-              <div className="p-8 text-center text-gray-400 font-bold">Đang tải dữ liệu...</div>
+              <div className="p-8 text-center text-gray-400 font-bold">Đang tải câu hỏi của bạn...</div>
             ) : quizzes.length === 0 ? (
-              <div className="p-8 text-center text-gray-400 font-bold">Chưa có bộ đề nào!</div>
+              <div className="p-8 text-center text-gray-400 font-bold space-y-3">
+                <p>Bạn chưa tạo bộ câu hỏi nào.</p>
+                <button
+                  onClick={onCreateQuiz}
+                  className="px-4 py-2 rounded bg-[#46178f] text-white font-bold text-xs uppercase"
+                >
+                  Bấm vào đây để tạo bộ đề đầu tiên
+                </button>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-xs font-black uppercase text-gray-500">
                       <th className="py-3 px-4">Ảnh bìa</th>
-                      <th className="py-3 px-4">Tên Bộ Đề Thi</th>
+                      <th className="py-3 px-4">Tên Bộ Đề</th>
                       <th className="py-3 px-4">Số câu</th>
-                      <th className="py-3 px-4 text-right">Hành động</th>
+                      <th className="py-3 px-4 text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-bold text-sm">
@@ -176,7 +176,7 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => onHostQuiz(quiz.id)}
-                              title="Mở phòng Host ngay"
+                              title="Mở phòng Host cho người khác nhập PIN chơi"
                               className="px-3 py-1.5 rounded font-black text-xs uppercase bg-[#26890c] text-white hover:bg-[#1b6308] flex items-center gap-1 shadow-sm"
                             >
                               <Play className="w-3.5 h-3.5 fill-current" />
@@ -209,12 +209,12 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
           </div>
         )}
 
-        {/* TAB 2: LỊCH SỬ PHÒNG THI VÀ XUẤT EXCEL */}
+        {/* TAB 2: LỊCH SỬ PHÒNG THI */}
         {activeTab === "history" && (
           <div className="bg-white rounded-xl shadow-sm border-b-4 border-gray-300 overflow-hidden">
             {history.length === 0 ? (
               <div className="p-8 text-center text-gray-400 font-bold">
-                Chưa có phòng thi nào hoàn thành. Hãy mở phòng Host để tổ chức trận đấu đầu tiên!
+                Chưa có phòng thi nào hoàn thành.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -223,9 +223,9 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
                     <tr className="bg-gray-50 border-b border-gray-200 text-xs font-black uppercase text-gray-500">
                       <th className="py-3 px-4">Mã PIN</th>
                       <th className="py-3 px-4">Tên Trận Đấu</th>
-                      <th className="py-3 px-4">Số Học Sinh Tham Gia</th>
-                      <th className="py-3 px-4">Thời gian kết thúc</th>
-                      <th className="py-3 px-4 text-right">Tải Báo Cáo</th>
+                      <th className="py-3 px-4">Số Người Tham Gia</th>
+                      <th className="py-3 px-4">Thời gian</th>
+                      <th className="py-3 px-4 text-right">Báo Cáo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-bold text-sm">
@@ -235,7 +235,7 @@ export default function AdminDashboard({ user, onHostQuiz, onEditQuiz, onCreateQ
                         <td className="py-3 px-4 font-black text-gray-900">{h.quizTitle}</td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 rounded bg-blue-50 text-[#1368ce] font-black text-xs">
-                            {h.playerCount} học sinh
+                            {h.playerCount} người
                           </span>
                         </td>
                         <td className="py-3 px-4 text-xs text-gray-500">

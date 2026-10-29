@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Plus, Trash2, ArrowLeft, Clock, Award, Check } from "lucide-react";
 
-export default function QuizEditor({ onBack, onSaved, editQuizData }) {
+export default function QuizEditor({ onBack, onSaved, editQuizData, currentUser }) {
   const [title, setTitle] = useState(editQuizData?.title || "");
   const [description, setDescription] = useState(editQuizData?.description || "");
   const [coverImage, setCoverImage] = useState(
@@ -95,6 +95,7 @@ export default function QuizEditor({ onBack, onSaved, editQuizData }) {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          userId: currentUser?.id || "user_demo_01",
           title: title.trim(),
           description: description.trim(),
           coverImage,

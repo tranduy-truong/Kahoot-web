@@ -4,16 +4,16 @@ import Home from "./components/Home";
 import HostScreen from "./components/HostScreen";
 import PlayerScreen from "./components/PlayerScreen";
 import QuizEditor from "./components/QuizEditor";
-import AdminDashboard from "./components/AdminDashboard";
+import MyQuizzes from "./components/MyQuizzes";
 import LoginModal from "./components/LoginModal";
 import { socket } from "./services/socket";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState("home"); // home, host, player, editor, admin
+  const [currentView, setCurrentView] = useState("home"); // home, host, player, editor, my-quizzes
   const [roomData, setRoomData] = useState(null);
   const [playerData, setPlayerData] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem("kahoot_teacher_user");
+    const saved = localStorage.getItem("kahoot_user");
     return saved ? JSON.parse(saved) : null;
   });
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -59,19 +59,13 @@ export default function App() {
 
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
-    localStorage.setItem("kahoot_teacher_user", JSON.stringify(user));
-
-    // Phân quyền theo vai trò (Role-based Routing):
-    if (user.role === "TEACHER") {
-      setCurrentView("admin"); // Giáo viên vào thẳng trang Quản trị
-    } else {
-      setCurrentView("home");  // Học sinh ở trang chủ sẵn sàng nhập PIN
-    }
+    localStorage.setItem("kahoot_user", JSON.stringify(user));
+    setCurrentView("my-quizzes"); // Đăng nhập xong vào thẳng danh sách câu hỏi của mình
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem("kahoot_teacher_user");
+    localStorage.removeItem("kahoot_user");
     setCurrentView("home");
   };
 
@@ -87,6 +81,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#46178f] text-white flex flex-col font-sans select-none">
+      {/* Navbar chỉ hiển thị ở màn hình thông thường (ẩn khi Host/Player toàn màn hình) */}
       {currentView !== "host" && currentView !== "player" && (
         <Navbar
           currentView={currentView}
@@ -101,15 +96,15 @@ export default function App() {
         {currentView === "home" && (
           <Home
             onJoinGame={handleJoinGame}
-            onHostGame={handleHostGame}
-            onOpenEditor={handleOpenCreateQuiz}
+            onOpenMyQuizzes={() => setCurrentView("my-quizzes")}
+            onOpenLogin={() => setIsLoginModalOpen(true)}
             currentUser={currentUser}
           />
         )}
 
-        {/* Chỉ Giáo viên mới được vào trang Admin */}
-        {currentView === "admin" && currentUser?.role === "TEACHER" && (
-          <AdminDashboard
+        {/* Trang Quản lý câu hỏi của tôi */}
+        {currentView === "my-quizzes" && (
+          <MyQuizzes
             user={currentUser}
             onHostQuiz={handleHostGame}
             onEditQuiz={handleOpenEditQuiz}
@@ -135,13 +130,15 @@ export default function App() {
 
         {currentView === "editor" && (
           <QuizEditor
+            currentUser={currentUser}
             editQuizData={editingQuiz}
-            onBack={() => setCurrentView(currentUser?.role === "TEACHER" ? "admin" : "home")}
-            onSaved={() => setCurrentView(currentUser?.role === "TEACHER" ? "admin" : "home")}
+            onBack={() => setCurrentView(currentUser ? "my-quizzes" : "home")}
+            onSaved={() => setCurrentView(currentUser ? "my-quizzes" : "home")}
           />
         )}
       </main>
 
+      {/* Modal Đăng nhập / Đăng ký */}
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}

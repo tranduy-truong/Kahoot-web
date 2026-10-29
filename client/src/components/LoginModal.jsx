@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { X, Lock, Mail, User, LogIn, UserPlus, GraduationCap, Briefcase } from "lucide-react";
+import { X, Lock, Mail, User, LogIn, UserPlus } from "lucide-react";
 
 export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
-  const [role, setRole] = useState("STUDENT"); // "STUDENT" hoặc "TEACHER"
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -14,14 +13,9 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
-  const handleQuickFill = (type) => {
-    if (type === "teacher") {
-      setEmail("teacher@kahoot.com");
-      setPassword("password123");
-    } else {
-      setEmail("student@kahoot.com");
-      setPassword("password123");
-    }
+  const handleQuickFill = () => {
+    setEmail("demo@kahoot.com");
+    setPassword("password123");
   };
 
   const handleSubmit = async (e) => {
@@ -30,7 +24,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
     setLoading(true);
 
     const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
-    const payload = isRegister ? { name, email, password, role } : { email, password };
+    const payload = isRegister ? { name, email, password } : { email, password };
 
     try {
       const res = await fetch(`${backendUrl}${endpoint}`, {
@@ -68,35 +62,29 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             <Lock className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-black text-gray-900">
-            {isRegister ? "Đăng ký Tài khoản" : "Đăng nhập Tài khoản"}
+            {isRegister ? "Đăng ký Tài khoản" : "Đăng nhập"}
           </h2>
           <p className="text-gray-500 text-xs mt-1">
             {isRegister
-              ? "Tạo tài khoản để tham gia học tập hoặc tạo bài giảng"
-              : "Đăng nhập để lưu điểm số cá nhân hoặc quản trị bài thi"}
+              ? "Tạo tài khoản để tự tạo và quản lý ngân hàng câu hỏi của bạn"
+              : "Đăng nhập để xem danh sách câu hỏi do bạn quản lý"}
           </p>
         </div>
 
-        {/* Nút bấm điền nhanh tài khoản mẫu để chấm bài */}
+        {/* Nút bấm điền nhanh tài khoản demo */}
         {!isRegister && (
-          <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs space-y-2">
-            <span className="font-black text-purple-900 block">⚡ Điền nhanh tài khoản dùng thử:</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickFill("student")}
-                className="flex-1 py-1.5 px-2 rounded bg-white border border-purple-300 font-bold text-[#46178f] hover:bg-purple-100 text-center"
-              >
-                🎓 Học sinh mẫu
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickFill("teacher")}
-                className="flex-1 py-1.5 px-2 rounded bg-[#46178f] text-white font-bold hover:bg-[#381072] text-center"
-              >
-                👨‍🏫 Giáo viên mẫu
-              </button>
+          <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs flex items-center justify-between">
+            <div>
+              <span className="font-black text-purple-900 block">Tài khoản dùng thử có sẵn:</span>
+              <span className="text-gray-600">demo@kahoot.com / password123</span>
             </div>
+            <button
+              type="button"
+              onClick={handleQuickFill}
+              className="py-1 px-3 rounded bg-[#46178f] text-white font-bold hover:bg-[#381072] text-xs"
+            >
+              Điền nhanh
+            </button>
           </div>
         )}
 
@@ -107,53 +95,17 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {/* Khi đăng ký -> Cho phép chọn là Học sinh hay Giáo viên */}
-          {isRegister && (
-            <div>
-              <label className="block text-xs font-black uppercase text-gray-500 mb-1.5">
-                Bạn là ai?
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRole("STUDENT")}
-                  className={`py-2 px-3 rounded-lg border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-                    role === "STUDENT"
-                      ? "border-[#46178f] bg-purple-50 text-[#46178f]"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  Học sinh
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setRole("TEACHER")}
-                  className={`py-2 px-3 rounded-lg border-2 font-black text-xs flex items-center justify-center gap-1.5 transition-all ${
-                    role === "TEACHER"
-                      ? "border-[#46178f] bg-purple-50 text-[#46178f]"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Giáo viên
-                </button>
-              </div>
-            </div>
-          )}
-
           {isRegister && (
             <div>
               <label className="block text-xs font-black uppercase text-gray-500 mb-1">
-                Họ và Tên
+                Họ và Tên của bạn
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
                 <input
                   type="text"
                   required
-                  placeholder={role === "TEACHER" ? "Thầy/Cô Nguyễn Văn A" : "Em Trần Văn B"}
+                  placeholder="Nhập họ và tên..."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-sm text-gray-900 focus:outline-none focus:border-[#46178f]"
@@ -202,7 +154,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
             className="w-full py-3.5 mt-2 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-green flex items-center justify-center gap-2"
           >
             {isRegister ? <UserPlus className="w-4 h-4 stroke-[3]" /> : <LogIn className="w-4 h-4 stroke-[3]" />}
-            {loading ? "Đang xử lý..." : isRegister ? "Tạo tài khoản" : "Đăng nhập ngay"}
+            {loading ? "Đang xử lý..." : isRegister ? "Đăng ký tài khoản" : "Đăng nhập ngay"}
           </button>
         </form>
 
@@ -217,7 +169,7 @@ export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
           >
             {isRegister
               ? "Đã có tài khoản? Bấm vào đây để Đăng nhập"
-              : "Chưa có tài khoản? Bấm vào đây để Đăng ký tài khoản"}
+              : "Chưa có tài khoản? Bấm vào đây để Đăng ký"}
           </button>
         </div>
       </div>

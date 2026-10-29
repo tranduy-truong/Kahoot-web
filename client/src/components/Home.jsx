@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Play, PlusCircle, Flame, Zap, FileSpreadsheet, Users } from "lucide-react";
+import { ArrowRight, Flame, Zap, FileSpreadsheet, BookOpen, LogIn } from "lucide-react";
 
 const AVATARS = ["🐱", "🐶", "🦊", "🦁", "🐼", "🚀", "🦄", "⚡"];
 
-export default function Home({ onJoinGame, onHostGame, onOpenEditor, currentUser }) {
+export default function Home({ onJoinGame, onOpenMyQuizzes, onOpenLogin, currentUser }) {
   const [pin, setPin] = useState("");
   const [nickname, setNickname] = useState(currentUser?.name || "");
-  const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar || AVATARS[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [step, setStep] = useState("PIN");
-  const [quizzes, setQuizzes] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
 
   useEffect(() => {
     if (currentUser?.name) {
@@ -27,18 +23,7 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor, currentUser
       setPin(pinParam);
       setStep("NICKNAME");
     }
-
-    fetch(`${backendUrl}/api/quizzes`)
-      .then((res) => res.json())
-      .then((data) => {
-        setQuizzes(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Lỗi tải quizzes:", err);
-        setLoading(false);
-      });
-  }, [backendUrl]);
+  }, []);
 
   const handlePinSubmit = (e) => {
     e.preventDefault();
@@ -60,10 +45,8 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor, currentUser
     onJoinGame({ pin: pin.trim(), nickname: nickname.trim(), avatar: selectedAvatar });
   };
 
-  const isTeacher = currentUser?.role === "TEACHER";
-
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#46178f] flex flex-col justify-between py-8 px-4 sm:px-6">
+    <div className="min-h-[calc(100vh-4rem)] bg-[#46178f] flex flex-col justify-between py-10 px-4 sm:px-6">
       {/* 1. MÀN HÌNH NHẬP PIN THỰC TẾ CHUẨN KAHOOT.IT */}
       <div className="w-full max-w-sm mx-auto my-auto flex flex-col items-center">
         <div className="mb-6 text-center select-none">
@@ -161,110 +144,60 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor, currentUser
           )}
         </div>
 
+        {/* Thông tin đăng nhập / Trạng thái */}
         {currentUser ? (
-          <p className="mt-4 text-xs font-bold text-white/90 text-center">
-            Đang đăng nhập với tư cách: <span className="text-[#ffa602] font-black">{currentUser.name}</span> ({isTeacher ? "Giáo viên" : "Học sinh"})
-          </p>
+          <div className="mt-4 text-center space-y-2">
+            <p className="text-xs font-bold text-white/90">
+              Đang đăng nhập: <span className="text-[#ffa602] font-black">{currentUser.name}</span>
+            </p>
+            <button
+              onClick={onOpenMyQuizzes}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white text-gray-900 font-black text-xs uppercase tracking-wider hover:bg-gray-100 shadow"
+            >
+              <BookOpen className="w-4 h-4 text-[#46178f]" />
+              Xem câu hỏi của tôi
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         ) : (
-          <p className="mt-4 text-xs font-bold text-white/80 text-center">
-            Bạn có thể đăng nhập tài khoản Học sinh hoặc Giáo viên ở góc trên
-          </p>
+          <div className="mt-5 text-center bg-black/20 p-3.5 rounded-xl border border-white/10 max-w-xs">
+            <p className="text-xs text-purple-200 font-bold mb-2">
+              Bạn muốn tự tạo và quản lý ngân hàng câu hỏi của mình?
+            </p>
+            <button
+              onClick={onOpenLogin}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white text-gray-900 font-black text-xs uppercase tracking-wider hover:bg-gray-100"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#46178f]" />
+              Đăng nhập ngay
+            </button>
+          </div>
         )}
       </div>
 
-      {/* 2. KHU VỰC NGÂN HÀNG ĐỀ THI DÀNH CHO HOST */}
-      <div className="max-w-6xl mx-auto w-full mt-16 pt-8 border-t-2 border-white/10 text-left">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-2xl font-black text-white flex items-center gap-2">
-              <Users className="w-6 h-6 text-[#ffa602]" />
-              Ngân hàng đề thi trắc nghiệm
-            </h2>
-            <p className="text-purple-200 text-sm mt-0.5">
-              Chọn bộ đề có sẵn bên dưới để mở phòng chiếu cho cả lớp tham gia.
-            </p>
+      {/* 2. BANNER GIỚI THIỆU TÍNH NĂNG Ở ĐÁY */}
+      <div className="max-w-4xl mx-auto w-full mt-10 grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+        <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
+          <Flame className="w-6 h-6 text-[#ffa602] shrink-0" />
+          <div className="text-xs">
+            <span className="font-black text-white block">Streak Combo</span>
+            <span className="text-purple-200">Đúng liên tiếp nhân thêm điểm</span>
           </div>
-
-          {/* Chỉ Giáo viên mới thấy nút "Tạo đề thi mới" */}
-          {isTeacher && (
-            <button
-              onClick={onOpenEditor}
-              className="px-5 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider flex items-center gap-2 btn-kahoot-white self-start sm:self-auto"
-            >
-              <PlusCircle className="w-4 h-4 stroke-[3]" />
-              Tạo đề thi mới
-            </button>
-          )}
         </div>
 
-        {loading ? (
-          <div className="text-center py-10 font-bold text-white/70">
-            Đang tải danh sách câu hỏi...
+        <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
+          <Zap className="w-6 h-6 text-[#1368ce] shrink-0" />
+          <div className="text-xs">
+            <span className="font-black text-white block">Thẻ Trợ Giúp</span>
+            <span className="text-purple-200">50:50 & x2 Điểm</span>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {quizzes.map((quiz) => (
-              <div
-                key={quiz.id}
-                className="bg-white rounded-lg overflow-hidden shadow-lg flex flex-col justify-between border-b-4 border-gray-300"
-              >
-                <div className="relative h-40 bg-gray-200 overflow-hidden">
-                  <img
-                    src={quiz.coverImage}
-                    alt={quiz.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded bg-black/75 text-white font-black text-xs">
-                    {quiz.questions?.length || 0} câu hỏi
-                  </div>
-                </div>
+        </div>
 
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
-                    <h3 className="text-lg font-black text-gray-900 line-clamp-1">
-                      {quiz.title}
-                    </h3>
-                    <p className="text-gray-600 text-xs mt-1 line-clamp-2">
-                      {quiz.description || "Bộ câu hỏi trắc nghiệm tương tác."}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => onHostGame(quiz.id)}
-                    className="w-full py-3 rounded font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 btn-kahoot-green"
-                  >
-                    <Play className="w-4 h-4 fill-white stroke-[2]" />
-                    Mở phòng Host
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
-            <Flame className="w-6 h-6 text-[#ffa602] shrink-0" />
-            <div className="text-xs">
-              <span className="font-black text-white block">Streak Combo</span>
-              <span className="text-purple-200">Đúng liên tiếp nhân thêm điểm</span>
-            </div>
-          </div>
-
-          <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
-            <Zap className="w-6 h-6 text-[#1368ce] shrink-0" />
-            <div className="text-xs">
-              <span className="font-black text-white block">Thẻ Trợ Giúp</span>
-              <span className="text-purple-200">50:50 & x2 Điểm</span>
-            </div>
-          </div>
-
-          <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
-            <FileSpreadsheet className="w-6 h-6 text-[#26890c] shrink-0" />
-            <div className="text-xs">
-              <span className="font-black text-white block">Xuất File Excel</span>
-              <span className="text-purple-200">Báo cáo điểm số cả lớp</span>
-            </div>
+        <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
+          <FileSpreadsheet className="w-6 h-6 text-[#26890c] shrink-0" />
+          <div className="text-xs">
+            <span className="font-black text-white block">Xuất File Excel</span>
+            <span className="text-purple-200">Báo cáo kết quả chi tiết</span>
           </div>
         </div>
       </div>

@@ -1,9 +1,7 @@
 import React from "react";
-import { PlusCircle, LogOut, ShieldCheck, LogIn, GraduationCap } from "lucide-react";
+import { PlusCircle, LogOut, BookOpen, LogIn } from "lucide-react";
 
 export default function Navbar({ currentView, setView, currentUser, onOpenLogin, onLogout }) {
-  const isTeacher = currentUser?.role === "TEACHER";
-
   return (
     <header className="bg-[#381072] border-b-2 border-[#2b085a] shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -31,19 +29,19 @@ export default function Navbar({ currentView, setView, currentUser, onOpenLogin,
             Vào chơi (PIN)
           </button>
 
-          {/* CHỈ GIÁO VIÊN mới có nút "Quản trị" và "Tạo Quiz" */}
-          {isTeacher && (
+          {/* Khi ĐÃ ĐĂNG NHẬP -> Hiện menu Quản lý câu hỏi của mình và Tạo Quiz */}
+          {currentUser ? (
             <>
               <button
-                onClick={() => setView("admin")}
+                onClick={() => setView("my-quizzes")}
                 className={`px-3.5 py-2 rounded-lg font-black text-xs uppercase tracking-wider flex items-center gap-1.5 btn-kahoot-3d ${
-                  currentView === "admin"
+                  currentView === "my-quizzes"
                     ? "bg-white text-[#333333] shadow-[0_4px_0_#cccccc]"
                     : "bg-[#1368ce] text-white shadow-[0_4px_0_#0a4691]"
                 }`}
               >
-                <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-                Quản trị
+                <BookOpen className="w-4 h-4 stroke-[2.5]" />
+                Câu hỏi của tôi
               </button>
 
               <button
@@ -57,31 +55,22 @@ export default function Navbar({ currentView, setView, currentUser, onOpenLogin,
                 <PlusCircle className="w-4 h-4 stroke-[3]" />
                 Tạo Quiz
               </button>
-            </>
-          )}
 
-          {/* Phần trạng thái Người dùng (Học sinh hoặc Giáo viên) */}
-          {currentUser ? (
-            <div className="flex items-center gap-2 pl-2 border-l border-white/20">
-              <div className="flex items-center gap-1.5 bg-black/25 px-2.5 py-1.5 rounded-lg text-xs font-black">
-                {isTeacher ? (
-                  <span className="text-[#ffa602]">👨‍🏫 {currentUser.name}</span>
-                ) : (
-                  <span className="text-purple-200 flex items-center gap-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-[#ffa602]" />
-                    {currentUser.name}
-                  </span>
-                )}
+              {/* Tên người dùng & Đăng xuất */}
+              <div className="flex items-center gap-2 pl-2 border-l border-white/20">
+                <span className="hidden sm:inline font-bold text-xs text-purple-200">
+                  {currentUser.name}
+                </span>
+
+                <button
+                  onClick={onLogout}
+                  title="Đăng xuất"
+                  className="p-2 rounded-lg bg-black/20 hover:bg-black/40 text-red-300 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-
-              <button
-                onClick={onLogout}
-                title="Đăng xuất"
-                className="p-2 rounded-lg bg-black/20 hover:bg-black/40 text-red-300 transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
+            </>
           ) : (
             <button
               onClick={onOpenLogin}

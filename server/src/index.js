@@ -72,9 +72,8 @@ const io = new Server(httpServer, {
 
 const gameManager = new GameManager(io);
 
-// === AUTHENTICATION APIS (Role-based: TEACHER & STUDENT) ===
+// === AUTHENTICATION APIS (Đăng nhập/Đăng ký chuẩn thông thường) ===
 
-// Đăng nhập chung cho cả Học sinh và Giáo viên
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
   const users = readUsers();
@@ -87,23 +86,20 @@ app.post("/api/auth/login", (req, res) => {
   res.json({
     id: user.id,
     name: user.name,
-    email: user.email,
-    role: user.role || "STUDENT",
-    avatar: user.avatar || "🐱"
+    email: user.email
   });
 });
 
-// Đăng ký tài khoản (chọn vai trò: STUDENT hoặc TEACHER)
 app.post("/api/auth/register", (req, res) => {
-  const { name, email, password, role, avatar } = req.body;
+  const { name, email, password } = req.body;
   if (!name || !email || !password) {
-    return res.status(400).json({ error: "Vui lòng điền đầy đủ họ tên, email và mật khẩu!" });
+    return res.status(400).json({ error: "Vui lòng nhập đầy đủ họ tên, email và mật khẩu!" });
   }
 
   const users = readUsers();
   const existing = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
   if (existing) {
-    return res.status(400).json({ error: "Email này đã được đăng ký trong hệ thống!" });
+    return res.status(400).json({ error: "Email này đã được đăng ký tài khoản!" });
   }
 
   const newUser = {
@@ -111,8 +107,6 @@ app.post("/api/auth/register", (req, res) => {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password: password.trim(),
-    role: role === "TEACHER" ? "TEACHER" : "STUDENT",
-    avatar: avatar || "🐱",
     createdAt: new Date().toISOString()
   };
 
@@ -122,16 +116,22 @@ app.post("/api/auth/register", (req, res) => {
   res.status(201).json({
     id: newUser.id,
     name: newUser.name,
-    email: newUser.email,
-    role: newUser.role,
-    avatar: newUser.avatar
+    email: newUser.email
   });
 });
 
-// === QUIZ MANAGEMENT APIS ===
+// === QUIZ APIS (Lọc theo người dùng quản lý) ===
 
 app.get("/api/quizzes", (req, res) => {
   quizzes = readQuizzes();
+  const { userId } = req.query;
+
+  // Nếu có userId -> Trả về danh sách câu hỏi do người đó quản lý
+  if (userId) {
+    const userQuizzes = quizzes.filter((q) => q.userId === userId);
+    return res.json(userQuizzes);
+  }
+
   res.json(quizzes);
 });
 
@@ -146,6 +146,7 @@ app.post("/api/quizzes", (req, res) => {
   quizzes = readQuizzes();
   const newQuiz = {
     id: `quiz_${Date.now()}`,
+    userId: req.body.userId || null,
     title: req.body.title || "Bộ câu hỏi mới",
     description: req.body.description || "",
     coverImage:
@@ -179,22 +180,6 @@ app.delete("/api/quizzes/:id", (req, res) => {
   quizzes = quizzes.filter((q) => q.id !== req.params.id);
   saveQuizzes(quizzes);
   res.json({ message: "Đã xóa bộ đề thành công!" });
-});
-
-// === ADMIN STATS & HISTORY APIS ===
-
-app.get("/api/admin/stats", (req, res) => {
-  quizzes = readQuizzes();
-  const totalQuestions = quizzes.reduce((acc, q) => acc + (q.questions?.length || 0), 0);
-  res.json({
-    totalQuizzes: quizzes.length,
-    totalQuestions,
-    totalMatches: matchHistory.length
-  });
-});
-
-app.get("/api/admin/history", (req, res) => {
-  res.json(matchHistory);
 });
 
 app.get("/api/reports/:pin/export", (req, res) => {

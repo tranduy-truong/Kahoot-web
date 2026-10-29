@@ -1,6 +1,7 @@
 [
   {
     "id": "quiz-web-tech-1",
+    "userId": "user_demo_01",
     "title": "Thử tài Lập trình Web & Công nghệ",
     "description": "Bộ câu hỏi trắc nghiệm kiểm tra kiến thức về React, JavaScript, HTML/CSS và Web Socket.",
     "coverImage": "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=80",
@@ -69,6 +70,7 @@
   },
   {
     "id": "quiz-general-trivia",
+    "userId": "user_demo_01",
     "title": "Đố vui Kiến thức Tổng hợp",
     "description": "Bộ câu hỏi thú vị về khoa học, địa lý và đời sống.",
     "coverImage": "https://images.unsplash.com/photo-1546776310-eef45dd6d63c?w=600&auto=format&fit=crop&q=80",
