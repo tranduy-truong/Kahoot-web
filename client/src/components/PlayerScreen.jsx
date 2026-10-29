@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Check, X, Flame, Zap } from "lucide-react";
+import { sounds } from "../services/sound";
 
 export default function PlayerScreen({ playerData, socket, onLeave }) {
-  const [playerState, setPlayerState] = useState("LOBBY"); // LOBBY, INTRO, PLAYING, SUBMITTED, RESULT, WAITING_NEXT, GAME_OVER
+  const [playerState, setPlayerState] = useState("LOBBY");
   const [currentQuestionNumber, setCurrentQuestionNumber] = useState(1);
   const [remainingTime, setRemainingTime] = useState(15);
   const [powerUps, setPowerUps] = useState(playerData?.player?.powerUps || { fiftyFifty: 1, doublePoints: 1 });
@@ -20,6 +21,7 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       setCurrentQuestionNumber(questionNumber);
       setEliminatedOptions([]);
       setUseDoublePointsThisRound(false);
+      sounds.playPop();
     });
 
     socket.on("question_start_player", ({ questionNumber, timeLimit, powerUps: pUps }) => {
@@ -29,7 +31,13 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       if (pUps) setPowerUps(pUps);
     });
 
-    socket.on("timer_tick", ({ remaining }) => setRemainingTime(remaining));
+    socket.on("timer_tick", ({ remaining }) => {
+      setRemainingTime(remaining);
+      if (remaining <= 5 && remaining > 0 && playerState === "PLAYING") {
+        sounds.playTick();
+      }
+    });
+
     socket.on("fifty_fifty_result", ({ eliminatedOptions }) => setEliminatedOptions(eliminatedOptions));
 
     socket.on("question_result_player", ({ isCorrect, pointsEarned, totalScore, streak }) => {
@@ -37,6 +45,12 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       setLastResult({ isCorrect, pointsEarned });
       setTotalScore(totalScore);
       setCurrentStreak(streak);
+
+      if (isCorrect) {
+        sounds.playCorrect();
+      } else {
+        sounds.playWrong();
+      }
     });
 
     socket.on("leaderboard_update", () => setPlayerState("WAITING_NEXT"));
@@ -56,16 +70,18 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       socket.off("game_over");
       socket.off("room_closed");
     };
-  }, [socket, onLeave]);
+  }, [socket, onLeave, playerState]);
 
   const handleSelectAnswer = (optionId) => {
     if (playerState !== "PLAYING") return;
+    sounds.playPop();
     setPlayerState("SUBMITTED");
     socket.emit("submit_answer", { optionId, usedDouble: useDoublePointsThisRound });
   };
 
   const handleUseFiftyFifty = () => {
     if (powerUps.fiftyFifty > 0 && playerState === "PLAYING") {
+      sounds.playPop();
       setPowerUps((prev) => ({ ...prev, fiftyFifty: prev.fiftyFifty - 1 }));
       socket.emit("use_fifty_fifty");
     }
@@ -73,11 +89,13 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
 
   const handleToggleDouble = () => {
     if (powerUps.doublePoints > 0 && playerState === "PLAYING") {
+      sounds.playPop();
       setUseDoublePointsThisRound((prev) => !prev);
     }
   };
 
   const handleSendEmoji = (emoji) => {
+    sounds.playPop();
     socket.emit("send_reaction", { emoji });
   };
 
@@ -143,7 +161,6 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
       {/* 3. MÀN HÌNH 4 KHỐI MÀU HUYỀN THOẠI CỦA KAHOOT (PLAYING) */}
       {playerState === "PLAYING" && (
         <div className="flex-1 flex flex-col justify-between p-3 gap-3">
-          {/* Thanh công cụ trợ giúp Power-ups phía trên */}
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-black text-white/80">
               Đồng hồ: <span className="text-[#ffa602] font-black text-sm">{remainingTime}s</span>
@@ -182,7 +199,6 @@ export default function PlayerScreen({ playerData, socket, onLeave }) {
             </div>
           </div>
 
-          {/* 4 Khối màu Kahoot chiếm trọn màn hình điện thoại */}
           <div className="grid grid-cols-2 gap-3 flex-1">
             {kahootOptions.map((btn) => {
               const isEliminated = eliminatedOptions.includes(btn.id);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import confetti from "canvas-confetti";
-import { Users, Play, Trophy, ArrowRight, Download, Check, X } from "lucide-react";
+import { Users, Play, Trophy, ArrowRight, Download, Check, X, Volume2, VolumeX, Music } from "lucide-react";
+import { sounds } from "../services/sound";
 
 export default function HostScreen({ roomData, socket, onLeave }) {
   const [roomState, setRoomState] = useState("LOBBY");
@@ -16,12 +17,18 @@ export default function HostScreen({ roomData, socket, onLeave }) {
   const [isLastQuestion, setIsLastQuestion] = useState(false);
   const [podium, setPodium] = useState({ first: null, second: null, third: null });
   const [floatingReactions, setFloatingReactions] = useState([]);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
   const joinUrl = `${window.location.origin}/?pin=${roomData?.pin}`;
 
   useEffect(() => {
-    socket.on("player_joined", ({ players }) => setPlayers(players));
+    socket.on("player_joined", ({ players }) => {
+      setPlayers(players);
+      sounds.playPop();
+    });
+
     socket.on("player_left", ({ players }) => setPlayers(players));
 
     socket.on("question_intro", ({ questionNumber, totalQuestions, questionTitle }) => {
@@ -30,6 +37,9 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setTotalQuestions(totalQuestions);
       setCurrentQuestion({ question: questionTitle });
       setAnsweredCount(0);
+      sounds.stopLobbyMusic();
+      setIsMusicPlaying(false);
+      sounds.playPop();
     });
 
     socket.on("question_start_host", ({ question, questionNumber, totalQuestions, timeLimit }) => {
@@ -41,25 +51,34 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       setAnsweredCount(0);
     });
 
-    socket.on("timer_tick", ({ remaining }) => setRemainingTime(remaining));
+    socket.on("timer_tick", ({ remaining }) => {
+      setRemainingTime(remaining);
+      if (remaining <= 5 && remaining > 0) {
+        sounds.playTick();
+      }
+    });
+
     socket.on("answer_submitted_update", ({ answeredCount }) => setAnsweredCount(answeredCount));
 
     socket.on("question_result_host", ({ question, stats }) => {
       setRoomState("QUESTION_RESULT");
       setCurrentQuestion(question);
       setQuestionStats(stats);
+      sounds.playPop();
     });
 
     socket.on("leaderboard_update", ({ topPlayers, isLastQuestion }) => {
       setRoomState("LEADERBOARD");
       setLeaderboard(topPlayers);
       setIsLastQuestion(isLastQuestion);
+      sounds.playPop();
     });
 
     socket.on("game_over", ({ podium }) => {
       setRoomState("GAME_OVER");
       setPodium(podium);
       triggerConfetti();
+      sounds.playVictory();
     });
 
     socket.on("floating_reaction", (reaction) => {
@@ -70,6 +89,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
     });
 
     return () => {
+      sounds.stopLobbyMusic();
       socket.off("player_joined");
       socket.off("player_left");
       socket.off("question_intro");
@@ -91,12 +111,30 @@ export default function HostScreen({ roomData, socket, onLeave }) {
     }, 600);
   };
 
-  const handleStartGame = () => socket.emit("start_quiz", { pin: roomData?.pin });
+  const handleStartGame = () => {
+    sounds.stopLobbyMusic();
+    socket.emit("start_quiz", { pin: roomData?.pin });
+  };
+
   const handleShowLeaderboard = () => socket.emit("show_leaderboard", { pin: roomData?.pin });
   const handleNextQuestion = () => socket.emit("next_question", { pin: roomData?.pin });
   const handleExportExcel = () => window.open(`${backendUrl}/api/reports/${roomData?.pin}/export`, "_blank");
 
-  // 4 khối màu Kahoot chuẩn xác
+  const toggleSound = () => {
+    const muted = sounds.toggleMute();
+    setIsMuted(muted);
+  };
+
+  const toggleMusic = () => {
+    if (isMusicPlaying) {
+      sounds.stopLobbyMusic();
+      setIsMusicPlaying(false);
+    } else {
+      sounds.startLobbyMusic();
+      setIsMusicPlaying(true);
+    }
+  };
+
   const kahootBlocks = [
     { bg: "kahoot-card-red", icon: "▲", name: "Đỏ" },
     { bg: "kahoot-card-blue", icon: "◆", name: "Lam" },
@@ -148,13 +186,37 @@ export default function HostScreen({ roomData, socket, onLeave }) {
               </div>
             </div>
 
-            <button
-              onClick={handleStartGame}
-              disabled={players.length === 0}
-              className="px-8 py-3 rounded-md font-black text-lg uppercase tracking-wider btn-kahoot-black disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Bắt đầu
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Nút bật tắt nhạc chờ */}
+              <button
+                onClick={toggleMusic}
+                title="Bật/Tắt nhạc chờ Lobby"
+                className={`p-3 rounded-md font-black text-sm uppercase flex items-center gap-1.5 ${
+                  isMusicPlaying
+                    ? "bg-[#26890c] text-white shadow-[0_4px_0_#1b6308]"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                <Music className="w-5 h-5" />
+              </button>
+
+              {/* Nút âm thanh chung */}
+              <button
+                onClick={toggleSound}
+                title="Bật/Tắt âm thanh"
+                className="p-3 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-700"
+              >
+                {isMuted ? <VolumeX className="w-5 h-5 text-red-600" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+
+              <button
+                onClick={handleStartGame}
+                disabled={players.length === 0}
+                className="px-8 py-3 rounded-md font-black text-lg uppercase tracking-wider btn-kahoot-black disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Bắt đầu
+              </button>
+            </div>
           </div>
 
           {/* Vùng giữa: Danh sách người chơi hiển thị dạng thẻ Kahoot */}
@@ -224,14 +286,11 @@ export default function HostScreen({ roomData, socket, onLeave }) {
       {/* 3. MÀN HÌNH CÂU HỎI ĐANG DIỄN RA (QUESTION_ACTIVE) */}
       {roomState === "QUESTION_ACTIVE" && (
         <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 max-w-7xl mx-auto w-full">
-          {/* Thanh trên: Câu hỏi màu trắng to đùng ở giữa, đồng hồ tròn bên trái, số câu trả lời bên phải */}
           <div className="flex items-center justify-between gap-4 mb-4">
-            {/* Đồng hồ đếm ngược tròn Kahoot */}
             <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg shrink-0">
               {remainingTime}
             </div>
 
-            {/* Khung câu hỏi chữ nhật màu trắng */}
             <div className="flex-1 bg-white rounded-lg p-5 sm:p-7 shadow-xl border-b-4 border-gray-300 text-center">
               <span className="text-xs font-black uppercase tracking-wider text-gray-400 block mb-1">
                 Câu {questionNumber} / {totalQuestions}
@@ -241,14 +300,12 @@ export default function HostScreen({ roomData, socket, onLeave }) {
               </h2>
             </div>
 
-            {/* Số người đã trả lời */}
             <div className="w-20 h-20 rounded-full bg-[#381072] border-4 border-white flex flex-col items-center justify-center text-white shadow-lg shrink-0">
               <span className="text-2xl font-black">{answeredCount}</span>
               <span className="text-[10px] font-black uppercase text-purple-200">Đã trả lời</span>
             </div>
           </div>
 
-          {/* 4 Khối màu Kahoot huyền thoại chiếm toàn bộ nửa dưới */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 items-stretch mt-4">
             {currentQuestion?.options?.map((opt, index) => (
               <div
@@ -265,7 +322,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
         </div>
       )}
 
-      {/* 4. MÀN HÌNH KẾT QUẢ CÂU HỎI (BIỂU ĐỒ CỘT 4 MÀU KAHOOT) */}
+      {/* 4. MÀN HÌNH KẾT QUẢ CÂU HỎI */}
       {roomState === "QUESTION_RESULT" && (
         <div className="flex-1 flex flex-col justify-between p-6 max-w-5xl mx-auto w-full">
           <div className="bg-white rounded-lg p-5 text-center shadow-lg border-b-4 border-gray-300 mb-6">
@@ -277,7 +334,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </h2>
           </div>
 
-          {/* Biểu đồ 4 cột màu hiển thị số người chọn */}
           <div className="bg-[#381072] border-4 border-[#2b085a] rounded-lg p-8 flex-1 flex flex-col justify-end">
             <div className="grid grid-cols-4 gap-4 sm:gap-8 h-64 items-end">
               {currentQuestion?.options?.map((opt, idx) => {
@@ -323,7 +379,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
         </div>
       )}
 
-      {/* 5. MÀN HÌNH BẢNG XẾP HẠNG (SCOREBOARD) */}
+      {/* 5. MÀN HÌNH BẢNG XẾP HẠNG */}
       {roomState === "LEADERBOARD" && (
         <div className="flex-1 flex flex-col justify-between p-6 max-w-4xl mx-auto w-full">
           <div className="text-center mb-6">
@@ -375,7 +431,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
         </div>
       )}
 
-      {/* 6. MÀN HÌNH VINH DANH CHUNG CUỘC (PODIUM TOP 3) */}
+      {/* 6. MÀN HÌNH VINH DANH CHUNG CUỘC */}
       {roomState === "GAME_OVER" && (
         <div className="flex-1 flex flex-col justify-between p-6 max-w-5xl mx-auto w-full">
           <div className="text-center mb-4">
@@ -387,9 +443,7 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </p>
           </div>
 
-          {/* 3 Bục Podium Kahoot */}
           <div className="flex items-end justify-center gap-4 sm:gap-8 pt-8 flex-1">
-            {/* Hạng 2 (Bên trái) */}
             <div className="flex-1 max-w-[200px] flex flex-col items-center">
               {podium.second ? (
                 <>
@@ -410,7 +464,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
               )}
             </div>
 
-            {/* Hạng 1 (Chính giữa cao nhất) */}
             <div className="flex-1 max-w-[240px] flex flex-col items-center">
               {podium.first ? (
                 <>
@@ -432,7 +485,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
               )}
             </div>
 
-            {/* Hạng 3 (Bên phải) */}
             <div className="flex-1 max-w-[200px] flex flex-col items-center">
               {podium.third ? (
                 <>
@@ -454,7 +506,6 @@ export default function HostScreen({ roomData, socket, onLeave }) {
             </div>
           </div>
 
-          {/* Nút Xuất Excel và Về Trang Chủ */}
           <div className="mt-8 pt-4 border-t-2 border-white/10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={handleExportExcel}

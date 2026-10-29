@@ -3,10 +3,16 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
-import { defaultQuizzes } from "./data/defaultQuizzes.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { GameManager } from "./gameManager.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_FILE = path.join(__dirname, "data", "quizzes.json");
 
 const app = express();
 const httpServer = createServer(app);
@@ -15,8 +21,28 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
-// In-memory Quizzes store
-let quizzes = [...defaultQuizzes];
+// Helper đọc và ghi quizzes từ file JSON bền vững
+function readQuizzes() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, "utf-8");
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Lỗi đọc file quizzes.json:", err);
+  }
+  return [];
+}
+
+function saveQuizzes(quizzes) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(quizzes, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Lỗi ghi file quizzes.json:", err);
+  }
+}
+
+let quizzes = readQuizzes();
 
 const io = new Server(httpServer, {
   cors: {
@@ -31,26 +57,32 @@ const gameManager = new GameManager(io);
 
 // Lấy danh sách câu hỏi
 app.get("/api/quizzes", (req, res) => {
+  quizzes = readQuizzes();
   res.json(quizzes);
 });
 
 // Lấy chi tiết 1 quiz
 app.get("/api/quizzes/:id", (req, res) => {
-  const quiz = quizzes.find(q => q.id === req.params.id);
+  quizzes = readQuizzes();
+  const quiz = quizzes.find((q) => q.id === req.params.id);
   if (!quiz) return res.status(404).json({ error: "Quiz not found" });
   res.json(quiz);
 });
 
-// Tạo hoặc cập nhật quiz mới
+// Tạo hoặc cập nhật quiz mới -> Lưu vĩnh viễn vào file JSON
 app.post("/api/quizzes", (req, res) => {
+  quizzes = readQuizzes();
   const newQuiz = {
     id: `quiz_${Date.now()}`,
     title: req.body.title || "Bộ câu hỏi mới",
     description: req.body.description || "",
-    coverImage: req.body.coverImage || "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=600&auto=format&fit=crop&q=80",
+    coverImage:
+      req.body.coverImage ||
+      "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=600&auto=format&fit=crop&q=80",
     questions: req.body.questions || []
   };
   quizzes.unshift(newQuiz);
+  saveQuizzes(quizzes);
   res.status(201).json(newQuiz);
 });
 
@@ -69,9 +101,9 @@ app.get("/api/reports/:pin/export", (req, res) => {
 
 // === SOCKET.IO EVENTS ===
 io.on("connection", (socket) => {
-  // Host tạo phòng
   socket.on("create_room", ({ quizId }) => {
-    const quiz = quizzes.find(q => q.id === quizId) || quizzes[0];
+    quizzes = readQuizzes();
+    const quiz = quizzes.find((q) => q.id === quizId) || quizzes[0];
     const room = gameManager.createRoom(socket.id, quiz);
     socket.join(room.pin);
 
@@ -83,7 +115,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Player tham gia phòng
   socket.on("join_room", ({ pin, nickname, avatar }) => {
     const result = gameManager.addPlayer(pin, socket.id, nickname, avatar);
     if (result.error) {
@@ -91,51 +122,42 @@ io.on("connection", (socket) => {
     }
 
     socket.join(pin);
-    // Báo cho chính player tham gia thành công
     socket.emit("join_success", {
       pin,
       player: result.player,
       quizTitle: result.room.quiz.title
     });
 
-    // Báo cho Host danh sách player cập nhật
     io.to(result.room.hostSocketId).emit("player_joined", {
       player: result.player,
       players: Array.from(result.room.players.values())
     });
   });
 
-  // Host bắt đầu game
   socket.on("start_quiz", ({ pin }) => {
     gameManager.startQuiz(pin);
   });
 
-  // Player submit câu trả lời
   socket.on("submit_answer", ({ optionId, usedDouble }) => {
     gameManager.submitAnswer(socket.id, optionId, usedDouble);
   });
 
-  // Player dùng trợ giúp 50:50
   socket.on("use_fifty_fifty", () => {
     gameManager.useFiftyFifty(socket.id);
   });
 
-  // Player thả biểu cảm reaction
   socket.on("send_reaction", ({ emoji }) => {
     gameManager.handleReaction(socket.id, emoji);
   });
 
-  // Host mở bảng xếp hạng
   socket.on("show_leaderboard", ({ pin }) => {
     gameManager.showLeaderboard(pin);
   });
 
-  // Host chuyển sang câu tiếp theo
   socket.on("next_question", ({ pin }) => {
     gameManager.nextQuestion(pin);
   });
 
-  // Xử lý ngắt kết nối
   socket.on("disconnect", () => {
     gameManager.removePlayer(socket.id);
   });
