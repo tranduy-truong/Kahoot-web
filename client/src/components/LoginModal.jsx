@@ -1,0 +1,164 @@
+import React, { useState } from "react";
+import { X, Lock, Mail, User, LogIn, UserPlus } from "lucide-react";
+
+export default function LoginModal({ isOpen, onClose, onLoginSuccess }) {
+  const [isRegister, setIsRegister] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("teacher@kahoot.com");
+  const [password, setPassword] = useState("password123");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setLoading(true);
+
+    const endpoint = isRegister ? "/api/auth/register" : "/api/auth/login";
+    const payload = isRegister ? { name, email, password } : { email, password };
+
+    try {
+      const res = await fetch(`${backendUrl}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorMsg(data.error || "Đăng nhập thất bại!");
+      } else {
+        onLoginSuccess(data);
+        onClose();
+      }
+    } catch (err) {
+      setErrorMsg("Không thể kết nối đến server backend!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 sm:p-8 text-gray-900 relative border-b-8 border-gray-300">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="text-center mb-6">
+          <div className="inline-flex p-3 rounded-2xl bg-[#46178f] text-white mb-2 shadow-md">
+            <Lock className="w-6 h-6" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900">
+            {isRegister ? "Đăng ký Tài khoản Giáo viên" : "Đăng nhập Quản trị"}
+          </h2>
+          <p className="text-gray-500 text-xs mt-1">
+            {isRegister
+              ? "Tạo tài khoản để quản lý bộ đề và xem báo cáo lớp học"
+              : "Dành cho Giáo viên & Quản trị viên phòng thi"}
+          </p>
+        </div>
+
+        {/* Gợi ý tài khoản mẫu cho giảng viên test */}
+        {!isRegister && (
+          <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-900">
+            <span className="font-black block">🔑 Tài khoản dùng thử của Giáo viên:</span>
+            Email: <code className="font-bold text-[#46178f]">teacher@kahoot.com</code> | Mật khẩu: <code className="font-bold text-[#46178f]">password123</code>
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="mb-4 p-2.5 rounded bg-red-100 border border-red-300 text-red-700 text-xs font-bold text-center">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          {isRegister && (
+            <div>
+              <label className="block text-xs font-black uppercase text-gray-500 mb-1">
+                Họ và Tên Giáo viên
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Thầy Trần Duy Trường"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-sm text-gray-900 focus:outline-none focus:border-[#46178f]"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-black uppercase text-gray-500 mb-1">
+              Email công tác
+            </label>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
+              <input
+                type="email"
+                required
+                placeholder="teacher@school.edu.vn"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-sm text-gray-900 focus:outline-none focus:border-[#46178f]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-black uppercase text-gray-500 mb-1">
+              Mật khẩu
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3.5" />
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-sm text-gray-900 focus:outline-none focus:border-[#46178f]"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 mt-2 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-green flex items-center justify-center gap-2"
+          >
+            {isRegister ? <UserPlus className="w-4 h-4 stroke-[3]" /> : <LogIn className="w-4 h-4 stroke-[3]" />}
+            {loading ? "Đang xử lý..." : isRegister ? "Tạo tài khoản" : "Đăng nhập ngay"}
+          </button>
+        </form>
+
+        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setErrorMsg("");
+            }}
+            className="text-xs font-bold text-[#46178f] hover:underline"
+          >
+            {isRegister
+              ? "Đã có tài khoản? Bấm vào đây để Đăng nhập"
+              : "Chưa có tài khoản Giáo viên? Bấm vào đây để Đăng ký"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

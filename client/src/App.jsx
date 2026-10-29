@@ -4,27 +4,32 @@ import Home from "./components/Home";
 import HostScreen from "./components/HostScreen";
 import PlayerScreen from "./components/PlayerScreen";
 import QuizEditor from "./components/QuizEditor";
+import AdminDashboard from "./components/AdminDashboard";
+import LoginModal from "./components/LoginModal";
 import { socket } from "./services/socket";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState("home"); // home, host, player, editor
+  const [currentView, setCurrentView] = useState("home"); // home, host, player, editor, admin
   const [roomData, setRoomData] = useState(null);
   const [playerData, setPlayerData] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem("kahoot_teacher_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState(null);
 
   useEffect(() => {
-    // Khi Host tạo phòng thành công
     socket.on("room_created", (data) => {
       setRoomData(data);
       setCurrentView("host");
     });
 
-    // Khi Player tham gia phòng thành công
     socket.on("join_success", (data) => {
       setPlayerData(data);
       setCurrentView("player");
     });
 
-    // Khi có lỗi tham gia
     socket.on("join_error", ({ message }) => {
       alert(message || "Không thể tham gia phòng!");
     });
@@ -47,16 +52,44 @@ export default function App() {
   const handleLeaveToHome = () => {
     setRoomData(null);
     setPlayerData(null);
+    setEditingQuiz(null);
     setCurrentView("home");
-    // Xóa param query trên URL nếu có
     window.history.replaceState({}, document.title, window.location.pathname);
   };
 
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    localStorage.setItem("kahoot_teacher_user", JSON.stringify(user));
+    setCurrentView("admin");
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("kahoot_teacher_user");
+    setCurrentView("home");
+  };
+
+  const handleOpenEditQuiz = (quiz) => {
+    setEditingQuiz(quiz);
+    setCurrentView("editor");
+  };
+
+  const handleOpenCreateQuiz = () => {
+    setEditingQuiz(null);
+    setCurrentView("editor");
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Ẩn Navbar khi đang trong chế độ chơi Host màn hình lớn hoặc Player màn hình nhỏ để tăng diện tích hiển thị */}
+    <div className="min-h-screen bg-[#46178f] text-white flex flex-col font-sans select-none">
+      {/* Navbar chỉ hiển thị ở màn hình thông thường (ẩn khi Host/Player toàn màn hình) */}
       {currentView !== "host" && currentView !== "player" && (
-        <Navbar currentView={currentView} setView={setCurrentView} />
+        <Navbar
+          currentView={currentView}
+          setView={setCurrentView}
+          currentUser={currentUser}
+          onOpenLogin={() => setIsLoginModalOpen(true)}
+          onLogout={handleLogout}
+        />
       )}
 
       <main className="flex-1 flex flex-col">
@@ -64,7 +97,16 @@ export default function App() {
           <Home
             onJoinGame={handleJoinGame}
             onHostGame={handleHostGame}
-            onOpenEditor={() => setCurrentView("editor")}
+            onOpenEditor={handleOpenCreateQuiz}
+          />
+        )}
+
+        {currentView === "admin" && (
+          <AdminDashboard
+            user={currentUser}
+            onHostQuiz={handleHostGame}
+            onEditQuiz={handleOpenEditQuiz}
+            onCreateQuiz={handleOpenCreateQuiz}
           />
         )}
 
@@ -86,11 +128,19 @@ export default function App() {
 
         {currentView === "editor" && (
           <QuizEditor
-            onBack={() => setCurrentView("home")}
-            onSaved={() => setCurrentView("home")}
+            editQuizData={editingQuiz}
+            onBack={() => setCurrentView(currentUser ? "admin" : "home")}
+            onSaved={() => setCurrentView(currentUser ? "admin" : "home")}
           />
         )}
       </main>
+
+      {/* Modal Đăng nhập / Đăng ký */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 }

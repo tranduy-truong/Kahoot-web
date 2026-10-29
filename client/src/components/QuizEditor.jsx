@@ -1,26 +1,29 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Trash2, ArrowLeft, Clock, Award, Check } from "lucide-react";
 
-export default function QuizEditor({ onBack, onSaved }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+export default function QuizEditor({ onBack, onSaved, editQuizData }) {
+  const [title, setTitle] = useState(editQuizData?.title || "");
+  const [description, setDescription] = useState(editQuizData?.description || "");
   const [coverImage, setCoverImage] = useState(
-    "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=600&auto=format&fit=crop&q=80"
+    editQuizData?.coverImage ||
+      "https://images.unsplash.com/photo-1606326608606-aa0b62935f2b?w=600&auto=format&fit=crop&q=80"
   );
-  const [questions, setQuestions] = useState([
-    {
-      id: `q_${Date.now()}`,
-      question: "Câu hỏi mẫu đầu tiên của bạn là gì?",
-      timeLimit: 15,
-      points: 1000,
-      options: [
-        { id: 0, text: "Lựa chọn Đỏ", isCorrect: true },
-        { id: 1, text: "Lựa chọn Lam", isCorrect: false },
-        { id: 2, text: "Lựa chọn Vàng", isCorrect: false },
-        { id: 3, text: "Lựa chọn Lục", isCorrect: false }
-      ]
-    }
-  ]);
+  const [questions, setQuestions] = useState(
+    editQuizData?.questions || [
+      {
+        id: `q_${Date.now()}`,
+        question: "Câu hỏi mẫu đầu tiên của bạn là gì?",
+        timeLimit: 15,
+        points: 1000,
+        options: [
+          { id: 0, text: "Lựa chọn Đỏ", isCorrect: true },
+          { id: 1, text: "Lựa chọn Lam", isCorrect: false },
+          { id: 2, text: "Lựa chọn Vàng", isCorrect: false },
+          { id: 3, text: "Lựa chọn Lục", isCorrect: false }
+        ]
+      }
+    ]
+  );
   const [activeQIndex, setActiveQIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -81,9 +84,15 @@ export default function QuizEditor({ onBack, onSaved }) {
     }
 
     setIsSaving(true);
+    const isEdit = !!editQuizData?.id;
+    const url = isEdit
+      ? `${backendUrl}/api/quizzes/${editQuizData.id}`
+      : `${backendUrl}/api/quizzes`;
+    const method = isEdit ? "PUT" : "POST";
+
     try {
-      const res = await fetch(`${backendUrl}/api/quizzes`, {
-        method: "POST",
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
@@ -94,7 +103,7 @@ export default function QuizEditor({ onBack, onSaved }) {
       });
 
       if (res.ok) {
-        alert("Đã lưu bộ đề thành công!");
+        alert(isEdit ? "Đã cập nhật bộ đề thành công!" : "Đã lưu bộ đề mới thành công!");
         onSaved();
       } else {
         alert("Có lỗi xảy ra khi lưu!");
@@ -143,7 +152,7 @@ export default function QuizEditor({ onBack, onSaved }) {
           disabled={isSaving}
           className="px-6 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider btn-kahoot-green"
         >
-          {isSaving ? "Đang lưu..." : "Lưu bộ đề"}
+          {isSaving ? "Đang lưu..." : editQuizData?.id ? "Cập nhật đề" : "Lưu bộ đề"}
         </button>
       </div>
 
@@ -196,7 +205,6 @@ export default function QuizEditor({ onBack, onSaved }) {
 
         {/* Khu vực giữa: Khung soạn thảo câu hỏi chi tiết */}
         <div className="flex-1 flex flex-col justify-between space-y-4">
-          {/* Ô nhập câu hỏi lớn ở trên */}
           <div className="bg-white rounded-lg p-6 shadow-md border-b-4 border-gray-200 text-center">
             <textarea
               rows={2}
@@ -207,7 +215,6 @@ export default function QuizEditor({ onBack, onSaved }) {
             />
           </div>
 
-          {/* Thanh cài đặt thời gian & điểm */}
           <div className="flex items-center justify-center gap-6 bg-white py-2.5 px-4 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-gray-500" />
@@ -239,7 +246,6 @@ export default function QuizEditor({ onBack, onSaved }) {
             </div>
           </div>
 
-          {/* 4 Khối màu nhập đáp án chuẩn Kahoot */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
             {currentQ.options.map((opt, idx) => (
               <div
@@ -258,7 +264,6 @@ export default function QuizEditor({ onBack, onSaved }) {
                   className="flex-1 bg-transparent text-white font-black text-lg placeholder-white/60 focus:outline-none border-b border-white/20 focus:border-white py-1"
                 />
 
-                {/* Nút tích chọn tròn làm đáp án ĐÚNG */}
                 <button
                   type="button"
                   onClick={() => setCorrectOption(idx)}
