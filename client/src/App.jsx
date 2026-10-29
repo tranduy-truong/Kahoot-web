@@ -60,7 +60,13 @@ export default function App() {
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     localStorage.setItem("kahoot_teacher_user", JSON.stringify(user));
-    setCurrentView("admin");
+
+    // Phân quyền theo vai trò (Role-based Routing):
+    if (user.role === "TEACHER") {
+      setCurrentView("admin"); // Giáo viên vào thẳng trang Quản trị
+    } else {
+      setCurrentView("home");  // Học sinh ở trang chủ sẵn sàng nhập PIN
+    }
   };
 
   const handleLogout = () => {
@@ -81,7 +87,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#46178f] text-white flex flex-col font-sans select-none">
-      {/* Navbar chỉ hiển thị ở màn hình thông thường (ẩn khi Host/Player toàn màn hình) */}
       {currentView !== "host" && currentView !== "player" && (
         <Navbar
           currentView={currentView}
@@ -98,10 +103,12 @@ export default function App() {
             onJoinGame={handleJoinGame}
             onHostGame={handleHostGame}
             onOpenEditor={handleOpenCreateQuiz}
+            currentUser={currentUser}
           />
         )}
 
-        {currentView === "admin" && (
+        {/* Chỉ Giáo viên mới được vào trang Admin */}
+        {currentView === "admin" && currentUser?.role === "TEACHER" && (
           <AdminDashboard
             user={currentUser}
             onHostQuiz={handleHostGame}
@@ -129,13 +136,12 @@ export default function App() {
         {currentView === "editor" && (
           <QuizEditor
             editQuizData={editingQuiz}
-            onBack={() => setCurrentView(currentUser ? "admin" : "home")}
-            onSaved={() => setCurrentView(currentUser ? "admin" : "home")}
+            onBack={() => setCurrentView(currentUser?.role === "TEACHER" ? "admin" : "home")}
+            onSaved={() => setCurrentView(currentUser?.role === "TEACHER" ? "admin" : "home")}
           />
         )}
       </main>
 
-      {/* Modal Đăng nhập / Đăng ký */}
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}

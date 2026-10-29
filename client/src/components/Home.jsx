@@ -3,16 +3,22 @@ import { Play, PlusCircle, Flame, Zap, FileSpreadsheet, Users } from "lucide-rea
 
 const AVATARS = ["🐱", "🐶", "🦊", "🦁", "🐼", "🚀", "🦄", "⚡"];
 
-export default function Home({ onJoinGame, onHostGame, onOpenEditor }) {
+export default function Home({ onJoinGame, onHostGame, onOpenEditor, currentUser }) {
   const [pin, setPin] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
-  const [step, setStep] = useState("PIN"); // "PIN" hoặc "NICKNAME"
+  const [nickname, setNickname] = useState(currentUser?.name || "");
+  const [selectedAvatar, setSelectedAvatar] = useState(currentUser?.avatar || AVATARS[0]);
+  const [step, setStep] = useState("PIN");
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+
+  useEffect(() => {
+    if (currentUser?.name) {
+      setNickname(currentUser.name);
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -54,11 +60,12 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor }) {
     onJoinGame({ pin: pin.trim(), nickname: nickname.trim(), avatar: selectedAvatar });
   };
 
+  const isTeacher = currentUser?.role === "TEACHER";
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#46178f] flex flex-col justify-between py-8 px-4 sm:px-6">
       {/* 1. MÀN HÌNH NHẬP PIN THỰC TẾ CHUẨN KAHOOT.IT */}
       <div className="w-full max-w-sm mx-auto my-auto flex flex-col items-center">
-        {/* Kahoot Logo */}
         <div className="mb-6 text-center select-none">
           <h1 className="text-5xl font-black text-white tracking-tight drop-shadow-[0_4px_0_rgba(0,0,0,0.25)]">
             Class<span className="text-[#ffa602]">Play</span>
@@ -66,7 +73,6 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor }) {
           </h1>
         </div>
 
-        {/* Card trắng nhập PIN / Nickname phong cách kahoot.it */}
         <div className="w-full bg-white rounded-lg p-6 shadow-2xl">
           {errorMsg && (
             <div className="mb-4 p-2.5 rounded bg-red-100 border border-red-300 text-red-700 text-sm font-bold text-center">
@@ -155,41 +161,45 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor }) {
           )}
         </div>
 
-        <p className="mt-4 text-xs font-bold text-white/80 text-center">
-          Tạo tài khoản hoặc mở phòng chơi bên dưới nếu bạn là Giáo viên / Host
-        </p>
+        {currentUser ? (
+          <p className="mt-4 text-xs font-bold text-white/90 text-center">
+            Đang đăng nhập với tư cách: <span className="text-[#ffa602] font-black">{currentUser.name}</span> ({isTeacher ? "Giáo viên" : "Học sinh"})
+          </p>
+        ) : (
+          <p className="mt-4 text-xs font-bold text-white/80 text-center">
+            Bạn có thể đăng nhập tài khoản Học sinh hoặc Giáo viên ở góc trên
+          </p>
+        )}
       </div>
 
-      {/* 2. KHU VỰC DÀNH CHO GIÁO VIÊN / HOST (Bên dưới) */}
+      {/* 2. KHU VỰC NGÂN HÀNG ĐỀ THI DÀNH CHO HOST */}
       <div className="max-w-6xl mx-auto w-full mt-16 pt-8 border-t-2 border-white/10 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-black text-white flex items-center gap-2">
               <Users className="w-6 h-6 text-[#ffa602]" />
-              Dành cho Giáo viên & Người tổ chức (Host)
+              Ngân hàng đề thi trắc nghiệm
             </h2>
             <p className="text-purple-200 text-sm mt-0.5">
-              Chọn bộ đề có sẵn bên dưới hoặc tự soạn đề mới để mở phòng chiếu cho cả lớp tham gia.
+              Chọn bộ đề có sẵn bên dưới để mở phòng chiếu cho cả lớp tham gia.
             </p>
           </div>
 
-          <button
-            onClick={onOpenEditor}
-            className="px-5 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider flex items-center gap-2 btn-kahoot-white self-start sm:self-auto"
-          >
-            <PlusCircle className="w-4 h-4 stroke-[3]" />
-            Tạo đề thi mới
-          </button>
+          {/* Chỉ Giáo viên mới thấy nút "Tạo đề thi mới" */}
+          {isTeacher && (
+            <button
+              onClick={onOpenEditor}
+              className="px-5 py-2.5 rounded-lg font-black text-sm uppercase tracking-wider flex items-center gap-2 btn-kahoot-white self-start sm:self-auto"
+            >
+              <PlusCircle className="w-4 h-4 stroke-[3]" />
+              Tạo đề thi mới
+            </button>
+          )}
         </div>
 
-        {/* Danh sách các bộ Quiz có sẵn */}
         {loading ? (
           <div className="text-center py-10 font-bold text-white/70">
             Đang tải danh sách câu hỏi...
-          </div>
-        ) : quizzes.length === 0 ? (
-          <div className="text-center py-10 font-bold text-white/70">
-            Chưa có bộ câu hỏi nào. Hãy bấm "Tạo đề thi mới" để bắt đầu!
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -232,7 +242,6 @@ export default function Home({ onJoinGame, onHostGame, onOpenEditor }) {
           </div>
         )}
 
-        {/* Tính năng mới cải tiến > 30% */}
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-[#381072] border border-[#521da7] rounded-lg p-3 flex items-center gap-3">
             <Flame className="w-6 h-6 text-[#ffa602] shrink-0" />

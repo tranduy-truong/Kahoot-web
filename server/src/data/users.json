@@ -1,10 +1,19 @@
 [
   {
-    "id": "user_admin_01",
+    "id": "user_teacher_01",
     "name": "Thầy Giáo Nguyễn Văn A",
     "email": "teacher@kahoot.com",
     "password": "password123",
     "role": "TEACHER",
+    "createdAt": "2026-10-29T00:00:00.000Z"
+  },
+  {
+    "id": "user_student_01",
+    "name": "Học Sinh Trần Tuấn Tú",
+    "email": "student@kahoot.com",
+    "password": "password123",
+    "role": "STUDENT",
+    "avatar": "🚀",
     "createdAt": "2026-10-29T00:00:00.000Z"
   }
 ]

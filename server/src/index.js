@@ -22,7 +22,6 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
-// Helper đọc/ghi Quizzes
 function readQuizzes() {
   try {
     if (fs.existsSync(DATA_FILE)) {
@@ -42,7 +41,6 @@ function saveQuizzes(quizzes) {
   }
 }
 
-// Helper đọc/ghi Users
 function readUsers() {
   try {
     if (fs.existsSync(USERS_FILE)) {
@@ -63,7 +61,7 @@ function saveUsers(users) {
 }
 
 let quizzes = readQuizzes();
-let matchHistory = []; // Lưu lịch sử các phòng đã kết thúc để Admin xem lại
+let matchHistory = [];
 
 const io = new Server(httpServer, {
   cors: {
@@ -74,9 +72,9 @@ const io = new Server(httpServer, {
 
 const gameManager = new GameManager(io);
 
-// === AUTHENTICATION APIS ===
+// === AUTHENTICATION APIS (Role-based: TEACHER & STUDENT) ===
 
-// Đăng nhập giáo viên
+// Đăng nhập chung cho cả Học sinh và Giáo viên
 app.post("/api/auth/login", (req, res) => {
   const { email, password } = req.body;
   const users = readUsers();
@@ -90,15 +88,16 @@ app.post("/api/auth/login", (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role || "STUDENT",
+    avatar: user.avatar || "🐱"
   });
 });
 
-// Đăng ký tài khoản giáo viên mới
+// Đăng ký tài khoản (chọn vai trò: STUDENT hoặc TEACHER)
 app.post("/api/auth/register", (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role, avatar } = req.body;
   if (!name || !email || !password) {
-    return res.status(400).json({ error: "Vui lòng điền đầy đủ thông tin!" });
+    return res.status(400).json({ error: "Vui lòng điền đầy đủ họ tên, email và mật khẩu!" });
   }
 
   const users = readUsers();
@@ -112,7 +111,8 @@ app.post("/api/auth/register", (req, res) => {
     name: name.trim(),
     email: email.trim().toLowerCase(),
     password: password.trim(),
-    role: "TEACHER",
+    role: role === "TEACHER" ? "TEACHER" : "STUDENT",
+    avatar: avatar || "🐱",
     createdAt: new Date().toISOString()
   };
 
@@ -123,19 +123,18 @@ app.post("/api/auth/register", (req, res) => {
     id: newUser.id,
     name: newUser.name,
     email: newUser.email,
-    role: newUser.role
+    role: newUser.role,
+    avatar: newUser.avatar
   });
 });
 
 // === QUIZ MANAGEMENT APIS ===
 
-// Lấy danh sách câu hỏi
 app.get("/api/quizzes", (req, res) => {
   quizzes = readQuizzes();
   res.json(quizzes);
 });
 
-// Lấy chi tiết 1 quiz
 app.get("/api/quizzes/:id", (req, res) => {
   quizzes = readQuizzes();
   const quiz = quizzes.find((q) => q.id === req.params.id);
@@ -143,7 +142,6 @@ app.get("/api/quizzes/:id", (req, res) => {
   res.json(quiz);
 });
 
-// Tạo mới quiz
 app.post("/api/quizzes", (req, res) => {
   quizzes = readQuizzes();
   const newQuiz = {
@@ -160,7 +158,6 @@ app.post("/api/quizzes", (req, res) => {
   res.status(201).json(newQuiz);
 });
 
-// Cập nhật quiz cũ
 app.put("/api/quizzes/:id", (req, res) => {
   quizzes = readQuizzes();
   const index = quizzes.findIndex((q) => q.id === req.params.id);
@@ -177,7 +174,6 @@ app.put("/api/quizzes/:id", (req, res) => {
   res.json(quizzes[index]);
 });
 
-// Xóa quiz
 app.delete("/api/quizzes/:id", (req, res) => {
   quizzes = readQuizzes();
   quizzes = quizzes.filter((q) => q.id !== req.params.id);
@@ -201,7 +197,6 @@ app.get("/api/admin/history", (req, res) => {
   res.json(matchHistory);
 });
 
-// Xuất file Excel báo cáo trận đấu
 app.get("/api/reports/:pin/export", (req, res) => {
   const { pin } = req.params;
   const buffer = gameManager.exportExcelReport(pin);
@@ -272,7 +267,6 @@ io.on("connection", (socket) => {
   socket.on("next_question", ({ pin }) => {
     gameManager.nextQuestion(pin);
 
-    // Khi game kết thúc -> Ghi lại lịch sử trận đấu cho Admin
     const room = gameManager.getRoom(pin);
     if (room && room.status === "GAME_OVER") {
       matchHistory.unshift({
